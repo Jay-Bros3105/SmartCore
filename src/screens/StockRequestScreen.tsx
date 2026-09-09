@@ -15,6 +15,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import ModuleHeader from '../components/ModuleHeader';
 import { useTheme, type ThemeColors } from '../theme/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts, radius, spacing } from '../theme/theme';
 import {
   getCurrentManager,
@@ -38,6 +39,7 @@ type Row = {
 
 export default function StockRequestScreen({ navigation }: Props) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [manager, setManager] = useState<ManagerProfile | null>(null);
   const [products, setProducts] = useState<ShopProduct[]>([]);
@@ -163,7 +165,7 @@ export default function StockRequestScreen({ navigation }: Props) {
             onChangeText={setReason}
           />
         </ScrollView>
-        <View style={styles.submitBar}>
+        <View style={[styles.submitBar, { bottom: insets.bottom }]}>
           <Pressable style={[styles.submitBtn, submitting && { opacity: 0.6 }]} onPress={handleSubmit} disabled={submitting}>
             <Text style={styles.submitBtnText}>
               {submitting ? 'Submitting…' : 'Send Request to Admin'}
@@ -279,7 +281,7 @@ export default function StockRequestScreen({ navigation }: Props) {
               </Text>
             </View>
           )}
-          <View style={styles.submitBar}>
+          <View style={[styles.submitBar, { bottom: insets.bottom }]}>
             <Pressable style={styles.submitBtn} onPress={handleReview}>
               <Text style={styles.submitBtnText}>Preview Request →</Text>
             </Pressable>

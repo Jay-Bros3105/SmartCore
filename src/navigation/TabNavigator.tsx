@@ -1,7 +1,8 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import HomeScreen from '../screens/HomeScreen';
 import TransactionsScreen from '../screens/TransactionsScreen';
@@ -29,18 +30,44 @@ const TAB_ICON: Record<
 
 export default function TabNavigator() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const pillBottom = Platform.OS === 'android' ? insets.bottom + 14 : insets.bottom + 14;
 
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: colors.logoBlue,
+        tabBarActiveTintColor: colors.logoBlueDeep,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: {
-          backgroundColor: colors.bg,
-          borderTopColor: colors.border,
-        },
+        tabBarShowLabel: true,
         tabBarLabelStyle: styles.label,
+        tabBarStyle: {
+          position: 'absolute',
+          left: 26,
+          right: 26,
+          bottom: pillBottom,
+          height: 62,
+          borderRadius: 31,
+          backgroundColor: colors.bg,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
+          paddingTop: 6,
+          paddingBottom: 6,
+          paddingLeft: 6,
+          paddingRight: 6,
+          shadowColor: colors.shadow,
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.16,
+          shadowRadius: 16,
+          elevation: 8,
+        },
+        tabBarItemStyle: {
+          borderRadius: 24,
+        },
+        tabBarIconStyle: {
+          marginTop: 2,
+        },
+        tabBarActiveBackgroundColor: 'transparent',
         tabBarIcon: ({ focused, color, size }) => {
           const icons = TAB_ICON[route.name as keyof MainTabParamList];
           return (
@@ -72,6 +99,7 @@ export default function TabNavigator() {
 const styles = StyleSheet.create({
   label: {
     fontFamily: 'Inter_500Medium',
-    fontSize: 11,
+    fontSize: 10,
+    marginTop: 1,
   },
 });

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import ModuleHeader from '../components/ModuleHeader';
 import { useTheme, type ThemeColors } from '../theme/ThemeContext';
@@ -59,6 +60,7 @@ const DENOMS = [10000, 5000, 2000, 1000, 500, 200, 100];
 
 export default function CashReconciliationScreen({ navigation }: Props) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [manager, setManager] = useState<ManagerProfile | null>(null);
   const [rec, setRec] = useState<CashReconciliation | null>(null);
@@ -164,7 +166,7 @@ export default function CashReconciliationScreen({ navigation }: Props) {
     return sum;
   }, [counts]);
 
-  const expectedCash = opCash + revenue + inCash - outCash - moneyOut.expenses;
+  const expectedCash = revenue - moneyOut.expenses;
   const variance = countedTotal - expectedCash;
   const varianceKind = variance === 0 ? 'matched' : variance < 0 ? 'shortage' : 'overage';
 
@@ -319,6 +321,10 @@ export default function CashReconciliationScreen({ navigation }: Props) {
               <Text style={styles.sumLabelBold}>Expected cash</Text>
               <Text style={styles.sumValueBold}>{formatTsh(rec.expectedCash)}</Text>
             </View>
+            <Text style={styles.sumNote}>
+              Expected = Sales (approved closing) − Expenses. Stock purchases are already
+              inside Sales; opening &amp; cash movements are recorded for reference only.
+            </Text>
             <View style={styles.sumRow}>
               <Text style={styles.sumLabel}>Counted in till</Text>
               <Text style={styles.sumValue}>{formatTsh(rec.countedCash)}</Text>
@@ -382,9 +388,9 @@ export default function CashReconciliationScreen({ navigation }: Props) {
         <View style={styles.noticeCard}>
           <Ionicons name="cash-outline" size={18} color={colors.sky} />
           <Text style={styles.noticeText}>
-            Expected cash = opening (yesterday's counted) + today's approved sales − today's
-            expenses −/+ cash movements. Stock purchases (Receiving/Requests) are paid by
-            your admin with money from outside the till, so they are NOT subtracted here.
+            Expected cash = today's approved Sales (from Daily Closing) − today's Expenses.
+            Stock purchases (Receiving/Requests) are already INSIDE Sales — they were merged
+            into the Current Stock you count at closing — so nothing else is subtracted here.
           </Text>
         </View>
 
@@ -401,7 +407,7 @@ export default function CashReconciliationScreen({ navigation }: Props) {
                 value={openingCash}
                 onChangeText={setOpeningCash}
               />
-              {openingSource ? <Text style={styles.autoHint}>{openingSource}</Text> : null}
+              {openingSource ? <Text style={styles.autoHint}>{openingSource}</Text> : <Text style={styles.autoHint}>Recorded for the report — not used in the closure formula.</Text>}
             </View>
             <View style={styles.fieldBoxAuto}>
               <Text style={styles.fieldLabel}>Sales revenue (from approved closing)</Text>
@@ -469,11 +475,12 @@ export default function CashReconciliationScreen({ navigation }: Props) {
               />
             </View>
           </View>
+          <Text style={styles.autoHint}>Opening &amp; cash movements are recorded for the report — not used in the closure formula.</Text>
           <View style={styles.expectedBox}>
             <Text style={styles.expectedLabel}>EXPECTED CASH</Text>
             <Text style={styles.expectedValue}>{formatTsh(expectedCash)}</Text>
             <Text style={styles.expectedHint}>
-              opening + sales + cash-in − cash-out − expenses (money out from till)
+              Sales (approved closing) − Expenses · stock purchases are already inside Sales
             </Text>
           </View>
         </View>
@@ -557,7 +564,7 @@ export default function CashReconciliationScreen({ navigation }: Props) {
         </View>
       </ScrollView>
 
-      <View style={styles.submitBar}>
+      <View style={[styles.submitBar, { bottom: insets.bottom }]}>
         <Pressable
           style={[styles.submitBtn, submitting && { opacity: 0.6 }]}
           onPress={handleSubmit}
@@ -838,6 +845,13 @@ const makeStyles = (c: ThemeColors) =>
       fontFamily: fonts.headingBold,
       fontSize: 14,
       color: c.text,
+    },
+    sumNote: {
+      fontFamily: fonts.body,
+      fontSize: 10.5,
+      color: c.textMuted,
+      lineHeight: 15,
+      marginTop: spacing.xs,
     },
     statusRow: {
       flexDirection: 'row',

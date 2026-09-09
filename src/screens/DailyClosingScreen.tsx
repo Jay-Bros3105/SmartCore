@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import ModuleHeader from '../components/ModuleHeader';
 import { useTheme, type ThemeColors } from '../theme/ThemeContext';
@@ -68,6 +69,7 @@ function formatDateLabel(key: string): string {
 
 export default function DailyClosingScreen({ navigation }: Props) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [manager, setManager] = useState<ManagerProfile | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
@@ -451,16 +453,25 @@ export default function DailyClosingScreen({ navigation }: Props) {
             </View>
           </View>
           <Text style={styles.reviewHint}>
-            Verify each remaining quantity matches reality. This total is the expected
-            money from today's sales.
+            Sales = money expected in the till from today's sold items. New stock received
+            today is already inside the item counts above — its value flows into Sales.
           </Text>
+
+          <View style={[styles.card, { marginTop: spacing.md, backgroundColor: colors.surfaceAlt }]}>
+            <Text style={styles.closeTitle}>DAY'S TOTAL TO CLOSE</Text>
+            <Text style={styles.closeValue}>{formatTsh(totalRevenue - moneyOut.expenses)}</Text>
+            <Text style={styles.closeHint}>
+              Sales − Expenses. This is the figure your admin uses to close today's accounts.
+            </Text>
+          </View>
 
           <View style={[styles.card, { marginTop: spacing.md }]}>
             <Text style={styles.sectionTitle}>Day's money out (from till)</Text>
             <Text style={styles.moneyHint}>
-              Expenses are deducted from today's cash. Stock purchases (Receiving / Requests)
-              are paid by your admin with money from outside the till — they are added to
-              stock but NOT subtracted from today's cash.
+              Expenses are deducted from today's Sales. Stock purchases (Receiving /
+              Requests) are paid by your admin with money from outside the till — they
+              are added to today's stock and counted in the items above (inside Sales),
+              so they are NOT subtracted again here.
             </Text>
             <View style={styles.moneyRow}>
               <Text style={styles.moneyLabel}>Expenses (today)</Text>
@@ -483,8 +494,8 @@ export default function DailyClosingScreen({ navigation }: Props) {
               <Text style={styles.moneyValue}>{formatTsh(moneyOut.request)}</Text>
             </View>
             <Text style={styles.moneyHint}>
-              Shown for information. Their total price was added to today's stock when the
-              admin saved the changes — you will see it reflected above.
+              Already inside today's closing: the approved receiving/requests were merged
+              into today's Current Stock, which is exactly what you are counting above.
             </Text>
           </View>
 
@@ -510,7 +521,7 @@ export default function DailyClosingScreen({ navigation }: Props) {
             </Pressable>
           )}
         </ScrollView>
-        <View style={styles.submitBar}>
+        <View style={[styles.submitBar, { bottom: insets.bottom }]}>
           <Pressable
             style={[styles.submitBtn, (submitting || !expensesConfirmed) && { opacity: 0.6 }]}
             onPress={handleSubmit}
@@ -732,7 +743,7 @@ export default function DailyClosingScreen({ navigation }: Props) {
             }}
           />
 
-          <View style={styles.submitBar}>
+          <View style={[styles.submitBar, { bottom: insets.bottom }]}>
             {missingRows.length > 0 && (
               <Text style={styles.submitMissHint}>
                 {missingRows.length} item{missingRows.length > 1 ? 's' : ''} still missing a count
@@ -1115,6 +1126,26 @@ const makeStyles = (c: ThemeColors) =>
       fontSize: 14,
       color: c.text,
       marginBottom: 2,
+    },
+    closeTitle: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: 11,
+      color: c.textMuted,
+      letterSpacing: 0.5,
+      textAlign: 'center',
+    },
+    closeValue: {
+      fontFamily: fonts.headingBold,
+      fontSize: 24,
+      color: c.navy,
+      textAlign: 'center',
+      marginVertical: 2,
+    },
+    closeHint: {
+      fontFamily: fonts.body,
+      fontSize: 11,
+      color: c.textMuted,
+      textAlign: 'center',
     },
     moneyHint: {
       fontFamily: fonts.body,

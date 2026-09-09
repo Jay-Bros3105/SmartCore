@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -46,6 +46,7 @@ function formatTsh(amount: number) {
 
 export default function HomeScreen({ navigation }: Props) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [manager, setManager] = useState<ManagerProfile | null>(null);
   const [products, setProducts] = useState<ShopProduct[]>([]);
 
@@ -123,7 +124,7 @@ export default function HomeScreen({ navigation }: Props) {
 
       <ScrollView
         style={styles.body}
-        contentContainerStyle={styles.bodyContent}
+        contentContainerStyle={[styles.bodyContent, { paddingBottom: spacing.xxl + 74 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
         <Text style={[styles.sectionTitle, { color: colors.text }]}>

@@ -204,8 +204,13 @@ export default function ReconcilePage() {
                               <tr><td>{t('reconcile.cashIn')}</td><td className="num-cell">+ {formatTsh(r.cashIn)}</td></tr>
                               <tr><td>{t('reconcile.cashOut')}</td><td className="num-cell">− {formatTsh(r.cashOut)}</td></tr>
                               <tr><td>{t('reconcile.expenses')}</td><td className="num-cell">− {formatTsh(r.expensesTotal)}</td></tr>
-                              <tr><td>{t('reconcile.receiving')}</td><td className="num-cell">{formatTsh(r.receivingTotal)}</td></tr>
-                              <tr><td>{t('reconcile.requests')}</td><td className="num-cell">{formatTsh(r.requestTotal)}</td></tr>
+<tr><td>{t('reconcile.receiving')}</td><td className="num-cell">{formatTsh(r.receivingTotal)}</td></tr>
+<tr><td>{t('reconcile.requests')}</td><td className="num-cell">{formatTsh(r.requestTotal)}</td></tr>
+<tr>
+  <td colSpan={2} style={{ fontSize: 11, color: 'var(--muted)', paddingTop: 2 }}>
+    {t('reconcile.stockInSales')}
+  </td>
+</tr>
                               <tr><td>{t('reconcile.totalMoneyOut')}</td><td className="num-cell">− {formatTsh(r.moneyOut)}</td></tr>
                               <tr>
                                 <td style={{ fontWeight: 800 }}>{t('reconcile.expected')}</td>

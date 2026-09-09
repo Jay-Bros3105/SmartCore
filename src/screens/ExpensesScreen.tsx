@@ -14,6 +14,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import ModuleHeader from '../components/ModuleHeader';
 import { useTheme, type ThemeColors } from '../theme/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts, radius, spacing } from '../theme/theme';
 import {
   getCurrentManager,
@@ -55,6 +56,7 @@ function newRow(): Row {
 
 export default function ExpensesScreen({ navigation }: Props) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [manager, setManager] = useState<ManagerProfile | null>(null);
   const [rows, setRows] = useState<Row[]>([newRow()]);
@@ -281,7 +283,7 @@ export default function ExpensesScreen({ navigation }: Props) {
         </ScrollView>
       )}
 
-      <View style={styles.submitBar}>
+      <View style={[styles.submitBar, { bottom: insets.bottom }]}>
         <Pressable style={[styles.submitBtn, submitting && { opacity: 0.6 }]} onPress={handleSubmit} disabled={submitting}>
           <Text style={styles.submitBtnText}>
             {submitting ? 'Submitting…' : 'Send Expenses to Admin'}

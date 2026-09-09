@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../theme/ThemeContext';
@@ -28,6 +28,7 @@ type ReportCard = {
 
 export default function ReportsScreen({ navigation }: Props) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const cards: ReportCard[] = [
     {
@@ -90,7 +91,7 @@ export default function ReportsScreen({ navigation }: Props) {
         </View>
 
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: spacing.xxl + 74 + insets.bottom }]}
           showsVerticalScrollIndicator={false}
         >
           <View style={[styles.banner, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>

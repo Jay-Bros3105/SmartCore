@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import ActionCard from '../components/ActionCard';
 import { useTheme } from '../theme/ThemeContext';
@@ -70,6 +70,7 @@ const MODULES: {
 
 export default function TransactionsScreen({ navigation }: Props) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
@@ -89,7 +90,7 @@ export default function TransactionsScreen({ navigation }: Props) {
         </View>
 
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: spacing.xxl + 74 + insets.bottom }]}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.grid}>

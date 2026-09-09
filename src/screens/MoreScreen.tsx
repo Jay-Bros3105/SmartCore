@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import StatusPill from '../components/StatusPill';
@@ -29,6 +29,7 @@ type Props = BottomTabScreenProps<MainTabParamList, 'More'>;
 
 export default function MoreScreen({ navigation }: Props) {
   const { colors, isDark, toggleMode } = useTheme();
+  const insets = useSafeAreaInsets();
   const [manager, setManager] = useState<ManagerProfile | null>(null);
   const [lockEnabled, setLockEnabled] = useState(false);
   const [lockModal, setLockModal] = useState(false);
@@ -146,7 +147,7 @@ export default function MoreScreen({ navigation }: Props) {
         </View>
 
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: spacing.xxl + 74 + insets.bottom }]}
           showsVerticalScrollIndicator={false}
         >
           {/* Profile card */}

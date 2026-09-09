@@ -14,3 +14,6 @@ admin-web/.next/
 admin-web/out/
 admin-web/.firebase/
 *.tsbuildinfo
+android/
+android/**/local.properties
+*.apk

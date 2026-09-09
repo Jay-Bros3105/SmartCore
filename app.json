@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Neo SmartCore",
+    "slug": "neo-smartcore",
+    "scheme": "neosmartcore",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#2BB6C9",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jslfastline.neosmartcore"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#2BB6C9"
+      },
+      "package": "com.jslfastline.neosmartcore"
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/icon.png"
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-logo.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#2BB6C9"
+        }
+      ],
+      "expo-sharing",
+      "expo-asset"
+    ]
+  }
+}

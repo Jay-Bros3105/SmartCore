@@ -29,7 +29,7 @@ export async function shareOverallReportPdf(opts: {
 
     const varianceText =
       rec.variance === 0
-        ? 'Matched — No variance'
+        ? 'Cash Matches — No variance'
         : rec.variance < 0
           ? `Shortage of cash ${fmt(Math.abs(rec.variance))}`
           : `Overage of cash ${fmt(Math.abs(rec.variance))}`;
@@ -83,26 +83,24 @@ export async function shareOverallReportPdf(opts: {
   </div>
   <div class="line"></div>
   <div class="intro">
-    <b>Overall Day Accounting — ${esc(rec.date)}</b><br/>
-    Opening + Sales − all money spent today (Expenses, Stock Receiving, Stock
-    Requests) compared with the physical cash counted in the till.
+    <b>Full Day Report — ${esc(rec.date)}</b><br/>
+    Alifungua na stock ya ${fmt(rec.openingStockValue)}; alipokea stock ya ${fmt(rec.receivingTotal)} ambayo
+    huenda iliongeza pesa; na alifunga siku na stock ya ${fmt(rec.salesRevenue)} (sales). Expected cash ni
+    Sales − Expenses. Pesa iliyokabidhiwa kwa admin inalinganishwa na hic expected cash.
   </div>
 
-  <div class="sum-title">Expected Cash</div>
+  <div class="sum-title">Stock &amp; Cash Movement</div>
   <table>
-    <tr><td>Opening cash (from closing of previous day)</td><td class="num">${fmt(rec.openingCash)}</td></tr>
-    <tr><td>Sales revenue (approved closing)</td><td class="num">+ ${fmt(rec.salesRevenue)}</td></tr>
-    <tr><td>Cash added to till</td><td class="num">+ ${fmt(rec.cashIn)}</td></tr>
-    <tr><td>Cash taken from till</td><td class="num">− ${fmt(rec.cashOut)}</td></tr>
-    <tr><td>Money out — Expenses</td><td class="num">− ${fmt(rec.expensesTotal)}</td></tr>
-    <tr><td>Money out — Stock Receiving</td><td class="num">− ${fmt(rec.receivingTotal)}</td></tr>
-    <tr><td>Money out — Stock Requests</td><td class="num">− ${fmt(rec.requestTotal)}</td></tr>
+    <tr><td>Opening stock value (goods in hand)</td><td class="num">${fmt(rec.openingStockValue)}</td></tr>
+    <tr><td>Stock received (may have added money to till)</td><td class="num">${fmt(rec.receivingTotal)}</td></tr>
+    <tr><td>Stock closed (sales revenue)</td><td class="num">+ ${fmt(rec.salesRevenue)}</td></tr>
+    <tr><td>Expenses (money out from till)</td><td class="num">− ${fmt(rec.expensesTotal)}</td></tr>
     <tr class="total-row"><td>EXPECTED CASH</td><td class="num">${fmt(rec.expectedCash)}</td></tr>
   </table>
 
-  <div class="sum-title">Actual &amp; Variance</div>
+  <div class="sum-title">Cash Handed Over &amp; Comment</div>
   <table>
-    <tr><td>Physical cash counted in till</td><td class="num">${fmt(rec.countedCash)}</td></tr>
+    <tr><td>Cash handed over to admin</td><td class="num">${fmt(rec.countedCash)}</td></tr>
     ${adjustmentRow}
     <tr class="${rec.variance === 0 ? 'total-row' : 'warn-row'}">
       <td>${esc(varianceText)}</td>

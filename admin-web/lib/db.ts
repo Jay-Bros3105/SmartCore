@@ -865,6 +865,7 @@ export type CashReconciliationRow = {
   date: string;
   openingCash: number;
   openingCashSource?: string;
+  openingStockValue: number;
   salesRevenue: number;
   cashIn: number;
   cashOut: number;
@@ -896,6 +897,7 @@ function mapCashReconciliation(id: string, data: Record<string, unknown>): CashR
     date: String(data.date ?? ''),
     openingCash: Number(data.openingCash ?? 0),
     openingCashSource: data.openingCashSource ? String(data.openingCashSource) : undefined,
+    openingStockValue: Number(data.openingStockValue ?? 0),
     salesRevenue: Number(data.salesRevenue ?? 0),
     cashIn: Number(data.cashIn ?? 0),
     cashOut: Number(data.cashOut ?? 0),

@@ -301,7 +301,8 @@ const dict: Record<Lang, Record<string, string>> = {
     'reconcile.confirmed': 'Reconciliation approved.',
     'reconcile.failed': 'Could not approve. Try again.',
     'reconcile.details': 'Full breakdown',
-    'reconcile.opening': 'Opening cash',
+    'reconcile.openingStock': 'Opening stock value (goods)',
+    'reconcile.opening': 'Opening cash (previous day counted)',
     'reconcile.sales': 'Sales revenue (approved closing)',
     'reconcile.cashIn': 'Cash added to till',
     'reconcile.cashOut': 'Cash taken from till',
@@ -313,6 +314,7 @@ const dict: Record<Lang, Record<string, string>> = {
     'reconcile.adjustment': 'Admin adjustment (TSh)',
     'reconcile.adjustmentHint': 'Positive adds cash, negative removes it (e.g. float returned). Variance updates live.',
     'reconcile.adjustApplied': 'Adjustment applied at approval.',
+    'reconcile.handed': 'Cash handed over to admin',
     // Transactions (receiving / requests / expenses)
     'nav.transactions': 'Transactions',
     'tx.title': 'Transactions',

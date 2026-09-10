@@ -21,7 +21,7 @@ import {
   getApprovedSalesRevenue,
   getCurrentManager,
   getDayMoneyOut,
-  getPreviousDayCountedCash,
+  getOpeningStockTotalDate,
   submitCashReconciliation,
   subscribeCashReconciliation,
 } from '../services/storeService';
@@ -57,8 +57,6 @@ function formatDateLabel(key: string): string {
   });
 }
 
-const DENOMS = [10000, 5000, 2000, 1000, 500, 200, 100];
-
 export default function CashReconciliationScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -69,17 +67,11 @@ export default function CashReconciliationScreen({ navigation }: Props) {
   const [revLoading, setRevLoading] = useState(true);
   const [date, setDate] = useState(() => todayKey());
 
-  const [openingCash, setOpeningCash] = useState('');
-  const [openingSource, setOpeningSource] = useState<string | undefined>();
-  const [cashIn, setCashIn] = useState('');
-  const [cashOut, setCashOut] = useState('');
-  const [counts, setCounts] = useState<Record<string, string>>({});
-  const [note, setNote] = useState('');
+  const [handedOver, setHandedOver] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [loadedRevFor, setLoadedRevFor] = useState<string | null>(null);
-  const [loadedOpeningFor, setLoadedOpeningFor] = useState<string | null>(null);
   const [moneyOut, setMoneyOut] = useState({ expenses: 0, receiving: 0, request: 0, total: 0 });
   const [moneyLoading, setMoneyLoading] = useState(false);
+  const [openingStockValue, setOpeningStockValue] = useState(0);
   const [sharingPdf, setSharingPdf] = useState(false);
 
   useEffect(() => {
@@ -104,17 +96,14 @@ export default function CashReconciliationScreen({ navigation }: Props) {
     };
   }, [date]);
 
-  // Pakua sales revenue kutoka kwenye closing approved ya siku hiyo.
+  // Pakua sales revenue (stock closed) kutoka kwenye closing approved ya siku hiyo.
   useEffect(() => {
     if (!manager?.branchId) return;
     let cancelled = false;
     setRevLoading(true);
     getApprovedSalesRevenue(manager.branchId, date)
       .then((v) => {
-        if (!cancelled) {
-          setRevenue(v);
-          setLoadedRevFor(date);
-        }
+        if (!cancelled) setRevenue(v);
       })
       .finally(() => {
         if (!cancelled) setRevLoading(false);
@@ -124,23 +113,19 @@ export default function CashReconciliationScreen({ navigation }: Props) {
     };
   }, [manager?.branchId, date]);
 
-  // Opening cash = counted ya siku iliyopita; money-out = expenses + receiving + request ya leo.
+  // Money-out (Expenses + Stock Receiving + Stock Requests) na thamani ya opening stock.
   useEffect(() => {
     if (!manager?.branchId) return;
     let cancelled = false;
     setMoneyLoading(true);
     Promise.all([
       getDayMoneyOut(manager.branchId, date),
-      getPreviousDayCountedCash(manager.branchId, date),
+      getOpeningStockTotalDate(manager.branchId, date),
     ])
-      .then(([mo, prev]) => {
+      .then(([mo, openingTotal]) => {
         if (cancelled) return;
         setMoneyOut(mo);
-        setOpeningSource(prev.cash > 0 ? `From closing of ${prev.sourceDate}` : undefined);
-        if (loadedOpeningFor !== date) {
-          setOpeningCash(prev.cash > 0 ? String(prev.cash) : '');
-          setLoadedOpeningFor(date);
-        }
+        setOpeningStockValue(openingTotal);
       })
       .finally(() => {
         if (!cancelled) setMoneyLoading(false);
@@ -155,26 +140,15 @@ export default function CashReconciliationScreen({ navigation }: Props) {
     return isNaN(n) ? 0 : n;
   };
 
-  const opCash = num(openingCash);
-  const inCash = num(cashIn);
-  const outCash = num(cashOut);
-
-  const countedTotal = useMemo(() => {
-    let sum = 0;
-    for (const d of DENOMS) {
-      sum += num(counts[String(d)] ?? '') * d;
-    }
-    return sum;
-  }, [counts]);
-
+  const handed = num(handedOver);
   const expectedCash = revenue - moneyOut.expenses;
-  const variance = countedTotal - expectedCash;
+  const variance = handed - expectedCash;
   const varianceKind = variance === 0 ? 'matched' : variance < 0 ? 'shortage' : 'overage';
 
   const handleSubmit = async () => {
     if (!manager) return;
-    if (countedTotal <= 0) {
-      Alert.alert('Count the Cash', 'Enter the number of notes/coins you counted in the till first.');
+    if (handed <= 0) {
+      Alert.alert('Enter Cash Handed Over', 'Enter the cash received by admin from you first.');
       return;
     }
     setSubmitting(true);
@@ -182,16 +156,15 @@ export default function CashReconciliationScreen({ navigation }: Props) {
       manager,
       {
         salesRevenue: revenue,
-        openingCash: opCash,
-        openingCashSource: openingSource,
-        cashIn: inCash,
-        cashOut: outCash,
+        openingCash: 0,
+        openingStockValue,
+        cashIn: 0,
+        cashOut: 0,
         expensesTotal: moneyOut.expenses,
         receivingTotal: moneyOut.receiving,
         requestTotal: moneyOut.request,
         moneyOut: moneyOut.expenses,
-        countedCash: countedTotal,
-        note,
+        countedCash: handed,
       },
       date
     );
@@ -205,28 +178,23 @@ export default function CashReconciliationScreen({ navigation }: Props) {
       shopId: manager.branchId,
       shopName: manager.branchName,
       date,
-      openingCash: opCash,
-      openingCashSource: openingSource,
+      openingCash: 0,
+      openingStockValue,
       salesRevenue: revenue,
-      cashIn: inCash,
-      cashOut: outCash,
+      cashIn: 0,
+      cashOut: 0,
       expensesTotal: moneyOut.expenses,
       receivingTotal: moneyOut.receiving,
       requestTotal: moneyOut.request,
       moneyOut: moneyOut.expenses,
       expectedCash,
-      countedCash: countedTotal,
+      countedCash: handed,
       variance,
       varianceKind,
-      note: note.trim() || undefined,
       managerName: manager.fullName,
       status: 'pending_admin',
       submittedAt: new Date().toISOString(),
     });
-  };
-
-  const setCount = (d: number, v: string) => {
-    setCounts((prev) => ({ ...prev, [String(d)]: v.replace(/[^0-9]/g, '') }));
   };
 
   const handleSharePdf = async () => {
@@ -247,7 +215,7 @@ export default function CashReconciliationScreen({ navigation }: Props) {
         <Pressable style={styles.dateStepperBtn} onPress={() => setDate(shiftDate(date, -1))} hitSlop={8}>
           <Ionicons name="chevron-back" size={18} color={colors.sky} />
         </Pressable>
-        <Text style={styles.dateStepperLabel}>Cash count for · {formatDateLabel(date)}</Text>
+        <Text style={styles.dateStepperLabel}>Cash handed over for · {formatDateLabel(date)}</Text>
         <Pressable
           style={[styles.dateStepperBtn, !canForward && styles.dateStepperBtnDisabled]}
           disabled={!canForward}
@@ -266,7 +234,7 @@ export default function CashReconciliationScreen({ navigation }: Props) {
       rec.varianceKind === 'matched' ? colors.success : rec.varianceKind === 'shortage' ? colors.danger : colors.gold;
     const kindLabel =
       rec.varianceKind === 'matched'
-        ? 'Matched — No variance'
+        ? 'Cash Matches — No variance'
         : rec.varianceKind === 'shortage'
           ? 'Shortage of cash'
           : 'Overage of cash';
@@ -275,12 +243,12 @@ export default function CashReconciliationScreen({ navigation }: Props) {
         <AppWatermark />
         <ModuleHeader
           title="Cash Reconciliation"
-          subtitle="Cash in hand vs expected cash"
+          subtitle="Cash handed to admin vs expected cash"
           onBack={() => navigation.goBack()}
         />
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 40 }}>
           <View style={styles.card}>
-            <Text style={styles.centerTitle}>Reconciliation for {rec.date}</Text>
+            <Text style={styles.centerTitle}>Cash Reconciliation · {rec.date}</Text>
             <View style={styles.kindBadgeWrap}>
               <View style={[styles.kindBadge, { backgroundColor: kindColor }]}>
                 <Ionicons
@@ -293,50 +261,30 @@ export default function CashReconciliationScreen({ navigation }: Props) {
             </View>
 
             <View style={styles.sumRow}>
-              <Text style={styles.sumLabel}>Opening cash (morning)</Text>
-              <Text style={styles.sumValue}>{formatTsh(rec.openingCash)}</Text>
+              <Text style={styles.sumLabel}>Opening stock value (goods in hand)</Text>
+              <Text style={styles.sumValue}>{formatTsh(rec.openingStockValue)}</Text>
             </View>
             <View style={styles.sumRow}>
-              <Text style={styles.sumLabel}>Sales revenue (auto)</Text>
-              <Text style={styles.sumValue}>{formatTsh(rec.salesRevenue)}</Text>
+              <Text style={styles.sumLabel}>Stock received (added money to till)</Text>
+              <Text style={styles.sumValue}>{formatTsh(rec.receivingTotal)}</Text>
             </View>
             <View style={styles.sumRow}>
               <Text style={styles.sumLabel}>Expenses (money out from till)</Text>
               <Text style={styles.sumValue}>− {formatTsh(rec.expensesTotal)}</Text>
             </View>
-            <View style={[styles.sumRow, styles.sumRowBold]}>
-              <Text style={styles.sumLabelBold}>Total money out (from till)</Text>
-              <Text style={styles.sumValueBold}>− {formatTsh(rec.moneyOut)}</Text>
-            </View>
-            <View style={[styles.sumRow, styles.sumRowBold]}>
-              <Text style={styles.sumLabelBold}>Stock purchases (paid by admin — from outside)</Text>
-              <Text style={styles.sumValue}>{formatTsh(rec.receivingTotal + rec.requestTotal)}</Text>
-            </View>
             <View style={styles.sumRow}>
-              <Text style={styles.sumLabel}>     Stock Receiving (not from till)</Text>
-              <Text style={styles.sumValue}>{formatTsh(rec.receivingTotal)}</Text>
-            </View>
-            <View style={styles.sumRow}>
-              <Text style={styles.sumLabel}>     Stock Requests (not from till)</Text>
-              <Text style={styles.sumValue}>{formatTsh(rec.requestTotal)}</Text>
-            </View>
-            <View style={styles.sumRow}>
-              <Text style={styles.sumLabel}>Cash added to till</Text>
-              <Text style={styles.sumValue}>+ {formatTsh(rec.cashIn)}</Text>
-            </View>
-            <View style={styles.sumRow}>
-              <Text style={styles.sumLabel}>Cash taken from till</Text>
-              <Text style={styles.sumValue}>− {formatTsh(rec.cashOut)}</Text>
+              <Text style={styles.sumLabel}>Stock closed (sales revenue)</Text>
+              <Text style={styles.sumValue}>{formatTsh(rec.salesRevenue)}</Text>
             </View>
             <View style={[styles.sumRow, styles.sumRowBold]}>
               <Text style={styles.sumLabelBold}>Expected cash</Text>
               <Text style={styles.sumValueBold}>{formatTsh(rec.expectedCash)}</Text>
             </View>
             <Text style={styles.sumNote}>
-              Expected = Sales − Expenses. Stock purchases are already inside Sales.
+              Expected = Sales (stock closed) − Expenses. Stock purchases are already inside Sales.
             </Text>
-            <View style={styles.sumRow}>
-              <Text style={styles.sumLabel}>Counted in till</Text>
+            <View style={[styles.sumRow, { borderBottomWidth: 0, marginTop: spacing.xs }]}>
+              <Text style={styles.sumLabel}>Cash handed over to admin</Text>
               <Text style={styles.sumValue}>{formatTsh(rec.countedCash)}</Text>
             </View>
             {rec.adminAdjustment !== undefined && (
@@ -353,12 +301,6 @@ export default function CashReconciliationScreen({ navigation }: Props) {
                 {rec.variance > 0 ? '+' : ''}{formatTsh(rec.variance)}
               </Text>
             </View>
-            {rec.note ? (
-              <View style={styles.noteBox}>
-                <Text style={styles.noteLabel}>Manager's note</Text>
-                <Text style={styles.noteText}>{rec.note}</Text>
-              </View>
-            ) : null}
             <View style={[styles.statusRow, { backgroundColor: rec.status === 'approved' ? `${colors.success}1A` : `${colors.gold}1A` }]}>
               <Ionicons
                 name={rec.status === 'approved' ? 'checkmark-done-circle' : 'time-outline'}
@@ -375,7 +317,7 @@ export default function CashReconciliationScreen({ navigation }: Props) {
           <Pressable style={[styles.doneBtn, { marginBottom: spacing.sm }]} onPress={handleSharePdf} disabled={sharingPdf}>
             <Ionicons name="download-outline" size={16} color={colors.white} style={{ marginRight: 6 }} />
             <Text style={styles.doneBtnText}>
-              {sharingPdf ? 'Preparing…' : 'Download Overall Report (PDF)'}
+              {sharingPdf ? 'Preparing…' : 'Download Full Report (PDF)'}
             </Text>
           </Pressable>
           <Pressable style={[styles.doneBtn, { backgroundColor: colors.border }]} onPress={() => navigation.goBack()}>
@@ -386,203 +328,104 @@ export default function CashReconciliationScreen({ navigation }: Props) {
     );
   }
 
+  const previewColor =
+    varianceKind === 'matched' ? colors.success : varianceKind === 'shortage' ? colors.danger : colors.gold;
+  const previewLabel =
+    varianceKind === 'matched'
+      ? 'Cash Matches — No variance'
+      : varianceKind === 'shortage'
+        ? `Shortage of ${formatTsh(Math.abs(variance))}`
+        : `Overage of ${formatTsh(Math.abs(variance))}`;
+
   return (
     <View style={styles.flex}>
       <AppWatermark />
       <ModuleHeader
         title="Cash Reconciliation"
-        subtitle="Cash in hand vs expected cash"
+        subtitle="Cash handed to admin vs expected cash"
         onBack={() => navigation.goBack()}
       />
-      {renderDateStepper()}
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 120 }}>
+      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 100 }}>
+        {renderDateStepper()}
+
         <View style={styles.noticeCard}>
-          <Ionicons name="cash-outline" size={18} color={colors.sky} />
+          <Ionicons name="information-circle" size={18} color={colors.sky} />
           <Text style={styles.noticeText}>
-            Expected cash = today's Sales (from Daily Closing) − today's Expenses.
-            Stock purchases are already inside Sales — nothing else is subtracted here.
+            Since closing stock and expenses are already recorded, just enter the cash you handed over to the
+            admin. The system compares it with the expected cash automatically — and you can download the full
+            report with the opening stock, received stock, expenses and stock closed.
           </Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Building Expected Cash</Text>
-          <View style={styles.fieldRow}>
-            <View style={styles.fieldBox}>
-              <Text style={styles.fieldLabel}>Opening cash (morning)</Text>
-              <TextInput
-                style={styles.input}
-                keyboardType="decimal-pad"
-                placeholder="0"
-                placeholderTextColor={colors.textMuted}
-                value={openingCash}
-                onChangeText={setOpeningCash}
-              />
-              {openingSource ? <Text style={styles.autoHint}>{openingSource}</Text> : <Text style={styles.autoHint}>For the report only.</Text>}
-            </View>
-            <View style={styles.fieldBoxAuto}>
-              <Text style={styles.fieldLabel}>Sales revenue (from approved closing)</Text>
-              <Text style={styles.autoValue}>
-                {revLoading ? '…' : formatTsh(revenue)}
-              </Text>
-              {!revLoading && revenue === 0 && (
-                <Text style={styles.autoHint}>
-                  No approved closing yet for this day — revenue is 0.
-                </Text>
-              )}
-            </View>
-          </View>
-
-          <View style={[styles.fieldBox, styles.moneyBox]}>
-            <Text style={styles.fieldLabel}>EXPENSES FROM TILL (auto from Expenses module)</Text>
-            <View style={styles.moneyRow}>
-              <Text style={styles.moneyLabel}>Expenses</Text>
-              <Text style={styles.moneyValue}>− {formatTsh(moneyOut.expenses)}</Text>
-            </View>
-            <View style={[styles.moneyRow, styles.moneyRowTotal]}>
-              <Text style={styles.moneyLabelTotal}>TOTAL MONEY OUT (from till)</Text>
-              <Text style={[styles.moneyValue, { color: colors.gold }]}>
-                − {moneyLoading ? '…' : formatTsh(moneyOut.expenses)}
-              </Text>
-            </View>
-          </View>
-
-          <View style={[styles.fieldBox, styles.purchaseBox]}>
-            <Text style={styles.fieldLabel}>STOCK PURCHASES — PAID BY ADMIN (money from outside)</Text>
-            <View style={styles.moneyRow}>
-              <Text style={styles.moneyLabel}>Stock Receiving</Text>
-              <Text style={styles.moneyValue}>{formatTsh(moneyOut.receiving)}</Text>
-            </View>
-            <View style={styles.moneyRow}>
-              <Text style={styles.moneyLabel}>Stock Requests</Text>
-              <Text style={styles.moneyValue}>{formatTsh(moneyOut.request)}</Text>
-            </View>
-            <Text style={styles.autoHint}>
-              Added to current stock when admin approves — not subtracted from the till.
-            </Text>
-          </View>
-
-          <View style={styles.fieldRow}>
-            <View style={styles.fieldBox}>
-              <Text style={styles.fieldLabel}>Cash added to till</Text>
-              <TextInput
-                style={styles.input}
-                keyboardType="decimal-pad"
-                placeholder="0"
-                placeholderTextColor={colors.textMuted}
-                value={cashIn}
-                onChangeText={setCashIn}
-              />
-            </View>
-            <View style={styles.fieldBox}>
-              <Text style={styles.fieldLabel}>Cash taken from till</Text>
-              <TextInput
-                style={styles.input}
-                keyboardType="decimal-pad"
-                placeholder="0"
-                placeholderTextColor={colors.textMuted}
-                value={cashOut}
-                onChangeText={setCashOut}
-              />
-            </View>
-          </View>
-          <Text style={styles.autoHint}>Opening &amp; cash movements — for the report only.</Text>
-          <View style={styles.expectedBox}>
-            <Text style={styles.expectedLabel}>EXPECTED CASH</Text>
-            <Text style={styles.expectedValue}>{formatTsh(expectedCash)}</Text>
-            <Text style={styles.expectedHint}>
-              Sales − Expenses · stock purchases already inside Sales
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Count the Till — notes &amp; coins</Text>
-          {DENOMS.map((d) => (
-            <View key={d} style={styles.denomRow}>
-              <View style={styles.denomBox}>
-                <Ionicons name="cash-outline" size={14} color={colors.text} />
-                <Text style={styles.denomLabel}>{formatTsh(d)}</Text>
+          <Text style={styles.sectionTitle}>Day summary</Text>
+          {moneyLoading || revLoading ? (
+            <ActivityIndicator color={colors.sky} style={{ marginTop: spacing.sm }} />
+          ) : (
+            <>
+              <View style={styles.sumRow}>
+                <Text style={styles.sumLabel}>Stock closed (sales revenue)</Text>
+                <Text style={styles.sumValue}>{formatTsh(revenue)}</Text>
               </View>
-              <TextInput
-                style={styles.denomInput}
-                keyboardType="number-pad"
-                placeholder="0"
-                placeholderTextColor={colors.textMuted}
-                value={counts[String(d)] ?? ''}
-                onChangeText={(v) => setCount(d, v)}
-              />
-              <Text style={styles.denomSubtotal}>
-                {formatTsh(num(counts[String(d)] ?? '') * d)}
-              </Text>
-            </View>
-          ))}
-          <View style={[styles.countedBox, { backgroundColor: colors.logoBlueDeep }]}>
-            <Text style={styles.countedLabel}>COUNTED TOTAL</Text>
-            <Text style={styles.countedValue}>{formatTsh(countedTotal)}</Text>
-          </View>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Variance</Text>
-          <View style={styles.varianceBox}>
-            <View style={styles.varianceCol}>
-              <Text style={styles.varianceLabel}>Expected</Text>
-              <Text style={styles.varianceValue}>{formatTsh(expectedCash)}</Text>
-            </View>
-            <Ionicons name="arrow-forward" size={20} color={colors.textMuted} />
-            <View style={styles.varianceCol}>
-              <Text style={styles.varianceLabel}>Counted</Text>
-              <Text style={styles.varianceValue}>{formatTsh(countedTotal)}</Text>
-            </View>
-          </View>
-          <View
-            style={[
-              styles.kindBadge,
-              {
-                backgroundColor:
-                  varianceKind === 'matched' ? colors.success : varianceKind === 'shortage' ? colors.danger : colors.gold,
-                marginTop: spacing.md,
-              },
-            ]}
-          >
-            <Ionicons
-              name={varianceKind === 'matched' ? 'checkmark-circle' : 'warning'}
-              size={16}
-              color={colors.white}
-            />
-            <Text style={styles.kindBadgeText}>
-              {varianceKind === 'matched'
-                ? 'Matched — no variance'
-                : varianceKind === 'shortage'
-                  ? `Shortage ${formatTsh(Math.abs(variance))}`
-                  : `Overage ${formatTsh(Math.abs(variance))}`}
-            </Text>
-          </View>
-          {varianceKind !== 'matched' && (
-            <View style={styles.noteBox}>
-              <Text style={styles.noteLabel}>Explain the difference (required)</Text>
-              <TextInput
-                style={[styles.input, styles.noteInput]}
-                placeholder="Why is there a difference? e.g. change given, damaged notes…"
-                placeholderTextColor={colors.textMuted}
-                multiline
-                value={note}
-                onChangeText={setNote}
-              />
-            </View>
+              <View style={styles.sumRow}>
+                <Text style={styles.sumLabel}>Stock received (added money)</Text>
+                <Text style={styles.sumValue}>{formatTsh(moneyOut.receiving)}</Text>
+              </View>
+              <View style={styles.sumRow}>
+                <Text style={styles.sumLabel}>Expenses (money out from till)</Text>
+                <Text style={styles.sumValue}>− {formatTsh(moneyOut.expenses)}</Text>
+              </View>
+              <View style={styles.sumRow}>
+                <Text style={styles.sumLabel}>Opening stock value (goods)</Text>
+                <Text style={styles.sumValue}>{formatTsh(openingStockValue)}</Text>
+              </View>
+              <View style={[styles.sumRow, styles.sumRowBold]}>
+                <Text style={styles.sumLabelBold}>Expected cash</Text>
+                <Text style={styles.sumValueBold}>{formatTsh(expectedCash)}</Text>
+              </View>
+              <Text style={styles.sumNote}>Expected = Sales − Expenses. Stock purchases are already inside Sales.</Text>
+            </>
           )}
         </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Cash handed over to admin</Text>
+          <TextInput
+            style={styles.input}
+            value={handedOver}
+            onChangeText={(t) => setHandedOver(t.replace(/[^0-9.]/g, ''))}
+            placeholder="e.g. 350000"
+            placeholderTextColor={colors.textMuted}
+            keyboardType="numeric"
+            editable={!submitting}
+          />
+          <Text style={styles.autoHint}>Total cash the admin received from you for this day.</Text>
+        </View>
+
+        {handedOver.length > 0 ? (
+          <View style={[styles.expectedBox, { backgroundColor: previewColor }]}>
+            <Text style={[styles.countedLabel]}>{previewLabel}</Text>
+            <Text style={styles.countedValue}>{formatTsh(variance)}</Text>
+          </View>
+        ) : (
+          <View style={[styles.expectedBox, { backgroundColor: colors.surfaceAlt }]}>
+            <Text style={[styles.expectedLabel, { color: colors.navy }]}>Enter cash to compare</Text>
+            <Text style={[styles.autoHint, { marginTop: 2 }]}>{formatTsh(expectedCash)} is expected for this day.</Text>
+          </View>
+        )}
       </ScrollView>
 
-      <View style={[styles.submitBar, { bottom: insets.bottom }]}>
+      <View style={[styles.submitBar, { paddingBottom: spacing.lg + insets.bottom }]}>
         <Pressable
           style={[styles.submitBtn, submitting && { opacity: 0.6 }]}
           onPress={handleSubmit}
           disabled={submitting}
         >
-          <Text style={styles.submitBtnText}>
-            {submitting ? 'Submitting…' : 'Submit Reconciliation to Admin'}
-          </Text>
+          {submitting ? (
+            <ActivityIndicator color={colors.white} />
+          ) : (
+            <Text style={styles.submitBtnText}>Send Reconciliation to Admin</Text>
+          )}
         </Pressable>
       </View>
     </View>
@@ -619,72 +462,15 @@ const makeStyles = (c: ThemeColors) =>
       color: c.text,
       marginBottom: spacing.sm,
     },
-    fieldRow: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-      marginBottom: spacing.sm,
-    },
-    fieldBox: {
-      flex: 1,
-      backgroundColor: c.surfaceAlt,
-      borderRadius: radius.sm,
-      padding: spacing.sm,
-    },
-    fieldBoxAuto: {
-      flex: 1,
-      backgroundColor: `${c.sky}1A`,
-      borderRadius: radius.sm,
-      padding: spacing.sm,
-    },
-    moneyBox: {
-      marginBottom: spacing.sm,
-    },
-    purchaseBox: {
-      backgroundColor: `${c.gold}1A`,
-      marginBottom: spacing.sm,
-    },
-    moneyRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      paddingVertical: 3,
-    },
-    moneyRowTotal: {
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: c.border,
-      marginTop: spacing.xs,
-      paddingTop: spacing.xs + 2,
-    },
-    moneyLabel: {
-      fontFamily: fonts.body,
-      fontSize: 12,
-      color: c.text,
-    },
-    moneyLabelTotal: {
-      fontFamily: fonts.bodySemiBold,
-      fontSize: 12,
-      color: c.text,
-    },
-    moneyValue: {
-      fontFamily: fonts.bodySemiBold,
-      fontSize: 12.5,
-      color: c.text,
-    },
-    fieldLabel: {
-      fontFamily: fonts.body,
-      fontSize: 11,
-      color: c.textMuted,
-      marginBottom: 4,
-    },
     input: {
       fontFamily: fonts.headingBold,
-      fontSize: 18,
+      fontSize: 24,
       color: c.text,
       padding: 0,
-    },
-    autoValue: {
-      fontFamily: fonts.headingBold,
-      fontSize: 18,
-      color: c.sky,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+      paddingBottom: spacing.xs,
+      marginBottom: spacing.xs,
     },
     autoHint: {
       fontFamily: fonts.body,
@@ -693,69 +479,15 @@ const makeStyles = (c: ThemeColors) =>
       marginTop: 2,
     },
     expectedBox: {
-      backgroundColor: c.surfaceAlt,
-      borderRadius: radius.sm,
-      padding: spacing.sm + 2,
+      borderRadius: radius.md,
+      padding: spacing.md,
       alignItems: 'center',
-      marginTop: spacing.xs,
     },
     expectedLabel: {
       fontFamily: fonts.bodySemiBold,
       fontSize: 10.5,
       color: c.navy,
       letterSpacing: 0.5,
-    },
-    expectedValue: {
-      fontFamily: fonts.headingBold,
-      fontSize: 22,
-      color: c.navy,
-      marginVertical: 2,
-    },
-    expectedHint: {
-      fontFamily: fonts.body,
-      fontSize: 10,
-      color: c.textMuted,
-    },
-    denomRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      marginBottom: spacing.sm,
-    },
-    denomBox: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    denomLabel: {
-      fontFamily: fonts.bodySemiBold,
-      fontSize: 13,
-      color: c.text,
-    },
-    denomInput: {
-      width: 72,
-      backgroundColor: c.surfaceAlt,
-      borderRadius: radius.sm,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 8,
-      fontFamily: fonts.headingBold,
-      fontSize: 16,
-      color: c.text,
-      textAlign: 'center',
-    },
-    denomSubtotal: {
-      width: 90,
-      textAlign: 'right',
-      fontFamily: fonts.bodyMedium,
-      fontSize: 12.5,
-      color: c.textMuted,
-    },
-    countedBox: {
-      borderRadius: radius.sm,
-      padding: spacing.sm + 2,
-      alignItems: 'center',
-      marginTop: spacing.xs,
     },
     countedLabel: {
       fontFamily: fonts.bodySemiBold,
@@ -768,25 +500,6 @@ const makeStyles = (c: ThemeColors) =>
       fontSize: 22,
       color: c.white,
       marginVertical: 2,
-    },
-    varianceBox: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-evenly',
-      gap: spacing.sm,
-    },
-    varianceCol: {
-      alignItems: 'center',
-    },
-    varianceLabel: {
-      fontFamily: fonts.body,
-      fontSize: 11,
-      color: c.textMuted,
-    },
-    varianceValue: {
-      fontFamily: fonts.headingBold,
-      fontSize: 17,
-      color: c.text,
     },
     kindBadgeWrap: {
       alignItems: 'center',
@@ -805,26 +518,6 @@ const makeStyles = (c: ThemeColors) =>
       fontFamily: fonts.bodySemiBold,
       fontSize: 12.5,
       color: c.white,
-    },
-    noteBox: {
-      backgroundColor: c.surfaceAlt,
-      borderRadius: radius.sm,
-      padding: spacing.sm,
-      marginTop: spacing.sm,
-    },
-    noteLabel: {
-      fontFamily: fonts.bodySemiBold,
-      fontSize: 11,
-      color: c.text,
-      marginBottom: 4,
-    },
-    noteInput: {
-      minHeight: 56,
-    },
-    noteText: {
-      fontFamily: fonts.body,
-      fontSize: 13,
-      color: c.text,
     },
     sumRow: {
       flexDirection: 'row',

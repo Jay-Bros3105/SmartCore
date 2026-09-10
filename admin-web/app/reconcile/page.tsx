@@ -199,10 +199,11 @@ export default function ReconcilePage() {
                         >
                           <table className="table" style={{ minWidth: 260, width: '100%' }}>
                             <tbody>
-                              <tr><td>{t('reconcile.opening')}</td><td className="num-cell">{formatTsh(r.openingCash)}</td></tr>
+                              <tr><td>{t('reconcile.openingStock')}</td><td className="num-cell">{formatTsh(r.openingStockValue)}</td></tr>
+                              {r.openingCash > 0 && <tr><td>{t('reconcile.opening')}</td><td className="num-cell">{formatTsh(r.openingCash)}</td></tr>}
+                              {r.cashIn > 0 && <tr><td>{t('reconcile.cashIn')}</td><td className="num-cell">+ {formatTsh(r.cashIn)}</td></tr>}
+                              {r.cashOut > 0 && <tr><td>{t('reconcile.cashOut')}</td><td className="num-cell">− {formatTsh(r.cashOut)}</td></tr>}
                               <tr><td>{t('reconcile.sales')}</td><td className="num-cell">+ {formatTsh(r.salesRevenue)}</td></tr>
-                              <tr><td>{t('reconcile.cashIn')}</td><td className="num-cell">+ {formatTsh(r.cashIn)}</td></tr>
-                              <tr><td>{t('reconcile.cashOut')}</td><td className="num-cell">− {formatTsh(r.cashOut)}</td></tr>
                               <tr><td>{t('reconcile.expenses')}</td><td className="num-cell">− {formatTsh(r.expensesTotal)}</td></tr>
 <tr><td>{t('reconcile.receiving')}</td><td className="num-cell">{formatTsh(r.receivingTotal)}</td></tr>
 <tr><td>{t('reconcile.requests')}</td><td className="num-cell">{formatTsh(r.requestTotal)}</td></tr>
@@ -211,12 +212,11 @@ export default function ReconcilePage() {
     {t('reconcile.stockInSales')}
   </td>
 </tr>
-                              <tr><td>{t('reconcile.totalMoneyOut')}</td><td className="num-cell">− {formatTsh(r.moneyOut)}</td></tr>
                               <tr>
                                 <td style={{ fontWeight: 800 }}>{t('reconcile.expected')}</td>
                                 <td className="num-cell" style={{ fontWeight: 800 }}>{formatTsh(r.expectedCash)}</td>
                               </tr>
-                              <tr><td>{t('reconcile.counted')}</td><td className="num-cell">{formatTsh(r.countedCash)}</td></tr>
+                              <tr><td>{t('reconcile.handed')}</td><td className="num-cell">{formatTsh(r.countedCash)}</td></tr>
                             </tbody>
                           </table>
                           <div style={{ minWidth: 240 }}>

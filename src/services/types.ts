@@ -150,6 +150,8 @@ export type CashReconciliation = {
   openingCash: number;
   /** Kutoka kwenye Cash Reconciliation ya siku iliyotangulia (counted). */
   openingCashSource?: string;
+  /** Thamani ya stock iliyofunguliwa siku hiyo (opening stock total). */
+  openingStockValue: number;
   salesRevenue: number;
   /** Pesa aliyoongeza admin kwenye till siku hiyo. */
   cashIn: number;

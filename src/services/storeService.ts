@@ -794,6 +794,7 @@ function mapCashReconciliation(id: string, data: Record<string, unknown>): CashR
     date: String(data.date ?? todayDateKey()),
     openingCash,
     openingCashSource: data.openingCashSource ? String(data.openingCashSource) : undefined,
+    openingStockValue: Number(data.openingStockValue ?? 0),
     salesRevenue,
     cashIn,
     cashOut,
@@ -850,6 +851,22 @@ export async function getApprovedSalesRevenue(
   const data = snap.data() as Record<string, unknown>;
   if (String(data.status ?? '') !== 'approved') return 0;
   return Number(data.totalRevenue ?? 0) || 0;
+}
+
+/** Thamani ya stock iliyofunguliwa siku fulani (opening stock total).
+ *  Hutumiwa kwenye ripoti ya Cash Reconciliation. */
+export async function getOpeningStockTotalDate(branchId: string, dateKey: string): Promise<number> {
+  if (!isFirebaseConfigured()) return 0;
+  try {
+    const snap = await getDoc(doc(getDB(), COLLECTIONS.openingStocks, `${branchId}_${dateKey}`));
+    if (!snap.exists()) return 0;
+    const data = snap.data() as Record<string, unknown>;
+    const total = Number(data.total ?? 0);
+    if (total > 0) return total;
+    return 0;
+  } catch {
+    return 0;
+  }
 }
 
 function prevDateKey(dateKey: string): string {
@@ -955,6 +972,7 @@ export async function submitCashReconciliation(
   input: {
     salesRevenue: number;
     openingCash: number;
+    openingStockValue: number;
     openingCashSource?: string;
     cashIn: number;
     cashOut: number;
@@ -975,6 +993,7 @@ export async function submitCashReconciliation(
     date,
     openingCash: input.openingCash,
     openingCashSource: input.openingCashSource || null,
+    openingStockValue: input.openingStockValue,
     salesRevenue: input.salesRevenue,
     cashIn: input.cashIn,
     cashOut: input.cashOut,

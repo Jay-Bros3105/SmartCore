@@ -80,6 +80,7 @@ export const COLLECTIONS = {
   stockReceiving: 'stockReceiving',
   stockRequests: 'stockRequests',
   expenses: 'expenses',
+  shopChangeRequests: 'shopChangeRequests',
 } as const;
 
 /** Auth: kuingia kwa msimamizi (email + password). */

@@ -54,6 +54,7 @@ export const COLLECTIONS = {
   stockReceiving: 'stockReceiving',
   stockRequests: 'stockRequests',
   expenses: 'expenses',
+  shopChangeRequests: 'shopChangeRequests',
 } as const;
 
 export function getDB() {

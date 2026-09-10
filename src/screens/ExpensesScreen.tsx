@@ -144,7 +144,7 @@ export default function ExpensesScreen({ navigation }: Props) {
           <Text style={styles.successTitle}>Expenses Submitted</Text>
           <Text style={styles.successBody}>
             {validRows.length} expense{validRows.length === 1 ? '' : 's'} · {formatTsh(total)}
-            {'\n'}Each item shows its purpose and price — your admin will confirm it.
+            {'\n'}Waiting Admin's Approval.
           </Text>
           <Pressable style={styles.doneBtn} onPress={() => navigation.goBack()}>
             <Text style={styles.doneBtnText}>Back to Transactions</Text>
@@ -174,8 +174,7 @@ export default function ExpensesScreen({ navigation }: Props) {
           <View style={styles.noticeCard}>
             <Ionicons name="information-circle-outline" size={16} color={colors.logoBlue} />
             <Text style={styles.noticeText}>
-              Describe what each expense was for and its price. The admin sees every
-              item — purpose and amount — before approving.
+              Add each expense's purpose and price. The admin will approve it.
             </Text>
           </View>
 
@@ -239,7 +238,7 @@ export default function ExpensesScreen({ navigation }: Props) {
           <View style={[styles.totalBox, { backgroundColor: colors.logoBlueDeep }]}>
             <Text style={styles.totalLabel}>TOTAL EXPENSES</Text>
             <Text style={styles.totalValue}>{formatTsh(total)}</Text>
-            <Text style={styles.totalHint}>{validRows.length} item{validRows.length === 1 ? '' : 's'} — each with its purpose</Text>
+            <Text style={styles.totalHint}>{validRows.length} item{validRows.length === 1 ? '' : 's'}</Text>
           </View>
 
           {history.length > 0 && (
@@ -272,7 +271,7 @@ export default function ExpensesScreen({ navigation }: Props) {
                           { color: h.status === 'approved' ? colors.success : colors.gold },
                         ]}
                       >
-                        {h.status === 'approved' ? 'Approved' : 'Pending'}
+                        {h.status === 'approved' ? 'Approved' : 'Waiting Admin'}
                       </Text>
                     </View>
                   </View>

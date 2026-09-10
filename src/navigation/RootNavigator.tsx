@@ -15,6 +15,7 @@ import CashReconciliationScreen from '../screens/CashReconciliationScreen';
 import StockRequestScreen from '../screens/StockRequestScreen';
 import ExpensesScreen from '../screens/ExpensesScreen';
 import CurrentStockScreen from '../screens/CurrentStockScreen';
+import ShopChangeScreen from '../screens/ShopChangeScreen';
 import DailyReportScreen from '../screens/reports/DailyReportScreen';
 import ShopReportScreen from '../screens/reports/ShopReportScreen';
 import ProductReportScreen from '../screens/reports/ProductReportScreen';
@@ -33,6 +34,7 @@ export type RootStackParamList = {
   StockRequest: undefined;
   Expenses: undefined;
   CurrentStock: undefined;
+  ShopChange: undefined;
   DailyReport: undefined;
   ShopReport: undefined;
   ProductReport: undefined;
@@ -112,6 +114,11 @@ export default function RootNavigator({ manager }: Props) {
         <Stack.Screen
           name="CurrentStock"
           component={CurrentStockScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="ShopChange"
+          component={ShopChangeScreen}
           options={{ animation: 'slide_from_right' }}
         />
         <Stack.Screen

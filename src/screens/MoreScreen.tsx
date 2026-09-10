@@ -18,7 +18,6 @@ import PinPad from '../components/PinPad';
 import { useTheme } from '../theme/ThemeContext';
 import { fonts, radius, spacing } from '../theme/theme';
 import {
-  clearManagerProfile,
   getCurrentManager,
 } from '../services/storeService';
 import { isAppLockEnabled, setAppLockEnabled } from '../services/appLockService';
@@ -108,22 +107,8 @@ export default function MoreScreen({ navigation }: Props) {
     }
   };
 
-  const handleReset = () => {
-    Alert.alert(
-      'Change Shop / Reset',
-      'You will be re-registered (name, phone and shop). Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Continue',
-          style: 'destructive',
-          onPress: async () => {
-            await clearManagerProfile();
-            navigation.getParent()?.navigate('Onboarding' as never);
-          },
-        },
-      ]
-    );
+  const handleShopChange = () => {
+    navigation.getParent()?.navigate('ShopChange' as never);
   };
 
   const initials = (manager?.fullName ?? 'NS')
@@ -261,7 +246,7 @@ export default function MoreScreen({ navigation }: Props) {
             )}
 
             <Pressable
-              onPress={handleReset}
+              onPress={handleShopChange}
               style={({ pressed }) => [
                 styles.settingsRow,
                 styles.settingsRowBorder,
@@ -274,9 +259,14 @@ export default function MoreScreen({ navigation }: Props) {
                   size={18}
                   color={colors.logoBlue}
                 />
-<Text style={[styles.settingsText, { color: colors.text }]}>
-                    Change Shop / Reset
+                <View>
+                  <Text style={[styles.settingsText, { color: colors.text }]}>
+                    Change Shop
                   </Text>
+                  <Text style={{ fontFamily: fonts.body, fontSize: 11, color: colors.textMuted }}>
+                    Requires admin approval to switch
+                  </Text>
+                </View>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.border} />
             </Pressable>

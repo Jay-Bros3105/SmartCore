@@ -238,17 +238,26 @@ export default function CashReconciliationScreen({ navigation }: Props) {
     }
   };
 
-  const renderDateStepper = () => (
-    <View style={styles.dateStepper}>
-      <Pressable style={styles.dateStepperBtn} onPress={() => setDate(shiftDate(date, -1))} hitSlop={8}>
-        <Ionicons name="chevron-back" size={18} color={colors.sky} />
-      </Pressable>
-      <Text style={styles.dateStepperLabel}>Cash count for · {formatDateLabel(date)}</Text>
-      <Pressable style={styles.dateStepperBtn} onPress={() => setDate(shiftDate(date, 1))} hitSlop={8}>
-        <Ionicons name="chevron-forward" size={18} color={colors.sky} />
-      </Pressable>
-    </View>
-  );
+  const renderDateStepper = () => {
+    const today = todayKey();
+    const canForward = date < today;
+    return (
+      <View style={styles.dateStepper}>
+        <Pressable style={styles.dateStepperBtn} onPress={() => setDate(shiftDate(date, -1))} hitSlop={8}>
+          <Ionicons name="chevron-back" size={18} color={colors.sky} />
+        </Pressable>
+        <Text style={styles.dateStepperLabel}>Cash count for · {formatDateLabel(date)}</Text>
+        <Pressable
+          style={[styles.dateStepperBtn, !canForward && styles.dateStepperBtnDisabled]}
+          disabled={!canForward}
+          onPress={() => setDate(shiftDate(date, 1))}
+          hitSlop={8}
+        >
+          <Ionicons name="chevron-forward" size={18} color={canForward ? colors.sky : colors.border} />
+        </Pressable>
+      </View>
+    );
+  };
 
   // Ikiwa tayari imewasilishwa — onyesha muhtasari na hali yake.
   if (rec) {
@@ -322,8 +331,7 @@ export default function CashReconciliationScreen({ navigation }: Props) {
               <Text style={styles.sumValueBold}>{formatTsh(rec.expectedCash)}</Text>
             </View>
             <Text style={styles.sumNote}>
-              Expected = Sales (approved closing) − Expenses. Stock purchases are already
-              inside Sales; opening &amp; cash movements are recorded for reference only.
+              Expected = Sales − Expenses. Stock purchases are already inside Sales.
             </Text>
             <View style={styles.sumRow}>
               <Text style={styles.sumLabel}>Counted in till</Text>
@@ -388,9 +396,8 @@ export default function CashReconciliationScreen({ navigation }: Props) {
         <View style={styles.noticeCard}>
           <Ionicons name="cash-outline" size={18} color={colors.sky} />
           <Text style={styles.noticeText}>
-            Expected cash = today's approved Sales (from Daily Closing) − today's Expenses.
-            Stock purchases (Receiving/Requests) are already INSIDE Sales — they were merged
-            into the Current Stock you count at closing — so nothing else is subtracted here.
+            Expected cash = today's Sales (from Daily Closing) − today's Expenses.
+            Stock purchases are already inside Sales — nothing else is subtracted here.
           </Text>
         </View>
 
@@ -407,7 +414,7 @@ export default function CashReconciliationScreen({ navigation }: Props) {
                 value={openingCash}
                 onChangeText={setOpeningCash}
               />
-              {openingSource ? <Text style={styles.autoHint}>{openingSource}</Text> : <Text style={styles.autoHint}>Recorded for the report — not used in the closure formula.</Text>}
+              {openingSource ? <Text style={styles.autoHint}>{openingSource}</Text> : <Text style={styles.autoHint}>For the report only.</Text>}
             </View>
             <View style={styles.fieldBoxAuto}>
               <Text style={styles.fieldLabel}>Sales revenue (from approved closing)</Text>
@@ -475,12 +482,12 @@ export default function CashReconciliationScreen({ navigation }: Props) {
               />
             </View>
           </View>
-          <Text style={styles.autoHint}>Opening &amp; cash movements are recorded for the report — not used in the closure formula.</Text>
+          <Text style={styles.autoHint}>Opening &amp; cash movements — for the report only.</Text>
           <View style={styles.expectedBox}>
             <Text style={styles.expectedLabel}>EXPECTED CASH</Text>
             <Text style={styles.expectedValue}>{formatTsh(expectedCash)}</Text>
             <Text style={styles.expectedHint}>
-              Sales (approved closing) − Expenses · stock purchases are already inside Sales
+              Sales − Expenses · stock purchases already inside Sales
             </Text>
           </View>
         </View>
@@ -921,6 +928,10 @@ const makeStyles = (c: ThemeColors) =>
       backgroundColor: c.surfaceAlt,
       borderRadius: radius.pill,
       padding: 8,
+    },
+    dateStepperBtnDisabled: {
+      backgroundColor: c.surfaceAlt,
+      opacity: 0.5,
     },
     dateStepperLabel: {
       fontFamily: fonts.bodySemiBold,

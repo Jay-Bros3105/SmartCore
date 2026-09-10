@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import ModuleHeader from '../components/ModuleHeader';
@@ -88,6 +89,20 @@ export default function DailyClosingScreen({ navigation }: Props) {
   const [expensesConfirmed, setExpensesConfirmed] = useState(false);
   const listRef = useRef<FlatList<Row>>(null);
 
+  const refreshMoneyOut = useCallback(() => {
+    const branchId = manager?.branchId;
+    if (!branchId) return;
+    getDayMoneyOut(branchId, date).then((mo) => setMoneyOut(mo));
+  }, [manager?.branchId, date]);
+
+  // Kila skrini ikifa macho (mchunguzi kurudi kutoka Expenses), soma upya money out —
+  // expenses zilizoandikwa sasa hivi zionekane mara moja kwenye "Expenses (today)".
+  useFocusEffect(
+    useCallback(() => {
+      refreshMoneyOut();
+    }, [refreshMoneyOut])
+  );
+
   const resetForNextDay = () => {
     setClosing(null);
     setReviewMode(false);
@@ -133,9 +148,22 @@ export default function DailyClosingScreen({ navigation }: Props) {
       return;
     }
     const next = shiftDate(date, 1);
+    let advanced = false;
     const unsub = subscribeOpeningStock(
       manager.branchId,
-      (o) => setNextOpening(o),
+      (o) => {
+        setNextOpening(o);
+        if (o?.status === 'confirmed') {
+          setUnlockNext(true);
+          setBlockedOnOpening(false);
+        }
+        // Tarehe ya leo ikisha-fungwa NA opening ya kesho ikithaibitishwa →
+        // anza mwanzo kesho moja kwa moja, bila kusubiri "Done".
+        if (!advanced && o?.status === 'confirmed' && date === todayKey()) {
+          advanced = true;
+          resetForNextDay();
+        }
+      },
       () => setNextOpening(null),
       next
     );
@@ -167,6 +195,10 @@ export default function DailyClosingScreen({ navigation }: Props) {
     let unsubCurrent: (() => void) | undefined;
     let unsubOpening: (() => void) | undefined;
     let currentSeen = false;
+
+    // Hakikisha hali inaanzia upya kwa tarehe husika — si reference ya tarehe ya nyuma.
+    setClosing(null);
+    setReviewMode(false);
 
     getCurrentManager()
       .then((m) => {
@@ -300,6 +332,7 @@ export default function DailyClosingScreen({ navigation }: Props) {
 
   const handleReview = () => {
     if (!validateAll()) return;
+    refreshMoneyOut();
     setReviewMode(true);
   };
 
@@ -357,21 +390,31 @@ export default function DailyClosingScreen({ navigation }: Props) {
 
   const submitted = !!closing;
 
-  const renderDateStepper = () => (
-    <View style={styles.dateStepper}>
-      <Pressable style={styles.dateStepperBtn} onPress={() => { setUnlockNext(false); setDate(shiftDate(date, -1)); }} hitSlop={8}>
-        <Ionicons name="chevron-back" size={18} color={colors.sky} />
-      </Pressable>
-      <Text style={styles.dateStepperLabel}>Closing for · {formatDateLabel(date)}</Text>
-      {date !== today ? (
-        <Pressable style={styles.todayBtn} onPress={() => { setUnlockNext(false); setDate(today); }} hitSlop={8}>
-          <Text style={styles.todayBtnText}>Today</Text>
+  const renderDateStepper = () => {
+    const canForward = date < today;
+    return (
+      <View style={styles.dateStepper}>
+        <Pressable style={styles.dateStepperBtn} onPress={() => { setUnlockNext(false); setDate(shiftDate(date, -1)); }} hitSlop={8}>
+          <Ionicons name="chevron-back" size={18} color={colors.sky} />
         </Pressable>
-      ) : (
-        <View style={styles.dateStepperBtnSpacer} />
-      )}
-    </View>
-  );
+        <Text style={styles.dateStepperLabel}>Closing for · {formatDateLabel(date)}</Text>
+        {date !== today ? (
+          <Pressable style={styles.todayBtn} onPress={() => { setUnlockNext(false); setDate(today); }} hitSlop={8}>
+            <Text style={styles.todayBtnText}>Today</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            style={[styles.dateStepperBtn, !canForward && styles.dateStepperBtnDisabled]}
+            disabled={!canForward}
+            onPress={() => { setUnlockNext(false); setDate(shiftDate(date, 1)); }}
+            hitSlop={8}
+          >
+            <Ionicons name="chevron-forward" size={18} color={canForward ? colors.sky : colors.border} />
+          </Pressable>
+        )}
+      </View>
+    );
+  };
 
   const renderSubmitted = () => (
     <View style={styles.centerWrap}>
@@ -380,8 +423,7 @@ export default function DailyClosingScreen({ navigation }: Props) {
       </View>
       <Text style={styles.successTitle}>Closing Submitted</Text>
       <Text style={styles.successBody}>
-        Your closing sales report has been submitted to your admin. It stays
-        locked here until approved — you can download the PDF or go back home.
+        Waiting Admin's Approval. It stays locked here until your admin approves it.
       </Text>
       <Pressable
         style={[styles.pdfBtn, pdfBusy && { opacity: 0.6 }]}
@@ -407,7 +449,7 @@ export default function DailyClosingScreen({ navigation }: Props) {
       </View>
       <Text style={styles.successTitle}>Closing Approved</Text>
       <Text style={styles.successBody}>
-        Your closing sales report has been successfully approved by your admin.
+        Your closing has been approved by your admin.
       </Text>
       <Pressable style={styles.doneBtn} onPress={handleContinueNext}>
         <Text style={styles.doneBtnText}>Done</Text>
@@ -453,25 +495,22 @@ export default function DailyClosingScreen({ navigation }: Props) {
             </View>
           </View>
           <Text style={styles.reviewHint}>
-            Sales = money expected in the till from today's sold items. New stock received
-            today is already inside the item counts above — its value flows into Sales.
+            New stock items received today are included in sales.
           </Text>
 
           <View style={[styles.card, { marginTop: spacing.md, backgroundColor: colors.surfaceAlt }]}>
             <Text style={styles.closeTitle}>DAY'S TOTAL TO CLOSE</Text>
             <Text style={styles.closeValue}>{formatTsh(totalRevenue - moneyOut.expenses)}</Text>
             <Text style={styles.closeHint}>
-              Sales − Expenses. This is the figure your admin uses to close today's accounts.
+              Sales − Expenses — what your admin will close with.
             </Text>
           </View>
 
           <View style={[styles.card, { marginTop: spacing.md }]}>
             <Text style={styles.sectionTitle}>Day's money out (from till)</Text>
             <Text style={styles.moneyHint}>
-              Expenses are deducted from today's Sales. Stock purchases (Receiving /
-              Requests) are paid by your admin with money from outside the till — they
-              are added to today's stock and counted in the items above (inside Sales),
-              so they are NOT subtracted again here.
+              Expenses are taken from today's Sales. New stock is already inside
+              Sales — it is not subtracted here.
             </Text>
             <View style={styles.moneyRow}>
               <Text style={styles.moneyLabel}>Expenses (today)</Text>
@@ -493,10 +532,7 @@ export default function DailyClosingScreen({ navigation }: Props) {
               <Text style={styles.moneyLabel}>Stock Requests</Text>
               <Text style={styles.moneyValue}>{formatTsh(moneyOut.request)}</Text>
             </View>
-            <Text style={styles.moneyHint}>
-              Already inside today's closing: the approved receiving/requests were merged
-              into today's Current Stock, which is exactly what you are counting above.
-            </Text>
+            <Text style={styles.moneyHint}>Received stock items included in sales.</Text>
           </View>
 
           <Pressable style={styles.confirmCheck} onPress={() => setExpensesConfirmed((v) => !v)}>
@@ -509,15 +545,15 @@ export default function DailyClosingScreen({ navigation }: Props) {
               {expensesConfirmed && <Ionicons name="checkmark" size={14} color={colors.white} />}
             </View>
             <Text style={styles.confirmCheckText}>
-              I confirm all Expenses and every cash spent from today's till has been
-              recorded in the app.
+              I confirm today's expenses of {formatTsh(moneyOut.expenses)} are
+              all recorded in the app.
             </Text>
           </Pressable>
 
           {!expensesConfirmed && (
             <Pressable style={styles.expenseLink} onPress={() => navigation.navigate('Expenses')}>
               <Ionicons name="receipt-outline" size={15} color={colors.sky} />
-              <Text style={styles.expenseLinkText}>Record Expenses first — opens now →</Text>
+              <Text style={styles.expenseLinkText}>Add today's expenses →</Text>
             </Pressable>
           )}
         </ScrollView>
@@ -1331,6 +1367,10 @@ const makeStyles = (c: ThemeColors) =>
       backgroundColor: c.surfaceAlt,
       borderRadius: radius.pill,
       padding: 8,
+    },
+    dateStepperBtnDisabled: {
+      backgroundColor: c.surfaceAlt,
+      opacity: 0.5,
     },
     dateStepperLabel: {
       fontFamily: fonts.bodySemiBold,

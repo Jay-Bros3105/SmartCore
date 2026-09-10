@@ -1,24 +1,27 @@
 'use client';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Boxes, Send, Receipt, CheckCircle2, Clock } from 'lucide-react';
+import { Boxes, Send, Receipt, Store, CheckCircle2, Clock, ArrowRight } from 'lucide-react';
 import {
   approveExpense,
+  approveShopChange,
   approveStockReceiving,
   approveStockRequest,
   listExpenses,
+  listShopChangeRequests,
   listStockReceiving,
   listStockRequests,
   subscribe,
   formatTsh,
   type ExpenseRow,
+  type ShopChangeRow,
   type StockReceivingRow,
   type StockRequestRow,
 } from '../../lib/db';
 import { isSessionAuthed } from '../../lib/db';
 import { useLang } from '../../lib/i18n';
 
-type Tab = 'receiving' | 'requests' | 'expenses';
+type Tab = 'receiving' | 'requests' | 'expenses' | 'shopChange';
 
 function fmtDate(key: string) {
   const d = new Date(key + 'T12:00:00Z');
@@ -32,13 +35,15 @@ export default function TransactionsPage() {
   const [receiving, setReceiving] = useState<StockReceivingRow[]>([]);
   const [requests, setRequests] = useState<StockRequestRow[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
+  const [shopChanges, setShopChanges] = useState<ShopChangeRow[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [r, q, e] = await Promise.all([listStockReceiving(), listStockRequests(), listExpenses()]);
+    const [r, q, e, s] = await Promise.all([listStockReceiving(), listStockRequests(), listExpenses(), listShopChangeRequests()]);
     setReceiving(r);
     setRequests(q);
     setExpenses(e);
+    setShopChanges(s);
   }, []);
 
   useEffect(() => {
@@ -57,32 +62,57 @@ export default function TransactionsPage() {
   const sortedReceiving = useMemo(() => sortRows(receiving), [receiving]);
   const sortedRequests = useMemo(() => sortRows(requests), [requests]);
   const sortedExpenses = useMemo(() => sortRows(expenses), [expenses]);
+  const sortedShopChanges = useMemo(
+    () => [...shopChanges].sort((a, b) => (b.submittedAt || '').localeCompare(a.submittedAt || '')),
+    [shopChanges]
+  );
 
   const pendingCount = (rows: { status: string }[]) => rows.filter((r) => r.status !== 'approved').length;
 
   const doApprove = async (
-    row: StockReceivingRow | StockRequestRow | ExpenseRow,
+    row: StockReceivingRow | StockRequestRow | ExpenseRow | ShopChangeRow,
     kind: Tab
   ) => {
+    if (kind === 'shopChange') {
+      const sr = row as ShopChangeRow;
+      const title = t('tx.approveShopChangeTitle');
+      const body = t('tx.approveShopChangeBody')
+        .replace('{name}', sr.managerName)
+        .replace('{from}', sr.shopFromName)
+        .replace('{to}', sr.shopToName);
+      if (!window.confirm(title + '\n' + body)) return;
+      setBusy(sr.id);
+      try {
+        await approveShopChange(sr.id);
+        load();
+      } catch {
+        window.alert(t('tx.failed'));
+      } finally {
+        setBusy(null);
+      }
+      return;
+    }
+
+    const tx = row as StockReceivingRow | StockRequestRow | ExpenseRow;
     let title = t('tx.approveReceivingTitle');
-    let body = t('tx.approveReceivingBody').replace('{shop}', row.shopName).replace('{date}', row.date);
+    let body = t('tx.approveReceivingBody').replace('{shop}', tx.shopName).replace('{date}', tx.date);
     if (kind === 'requests') {
       title = t('tx.approveRequestTitle');
-      body = t('tx.approveRequestBody').replace('{shop}', row.shopName).replace('{date}', row.date);
+      body = t('tx.approveRequestBody').replace('{shop}', tx.shopName).replace('{date}', tx.date);
     }
     if (kind === 'expenses') {
       title = t('tx.approveExpenseTitle');
       body = t('tx.approveExpenseBody')
-        .replace('{shop}', row.shopName)
-        .replace('{total}', formatTsh(row.total))
-        .replace('{date}', row.date);
+        .replace('{shop}', tx.shopName)
+        .replace('{total}', formatTsh(tx.total))
+        .replace('{date}', tx.date);
     }
     if (!window.confirm(title + '\n' + body)) return;
-    setBusy(row.id);
+    setBusy(tx.id);
     try {
-      if (kind === 'receiving') await approveStockReceiving(row.id);
-      else if (kind === 'requests') await approveStockRequest(row.id);
-      else await approveExpense(row.id);
+      if (kind === 'receiving') await approveStockReceiving(tx.id);
+      else if (kind === 'requests') await approveStockRequest(tx.id);
+      else await approveExpense(tx.id);
       load();
     } catch {
       window.alert(t('tx.failed'));
@@ -117,9 +147,10 @@ export default function TransactionsPage() {
               ['receiving', t('tx.receiving'), Boxes],
               ['requests', t('tx.requests'), Send],
               ['expenses', t('tx.expenses'), Receipt],
+              ['shopChange', t('tx.shopChange'), Store],
             ] as [Tab, string, typeof Boxes][]
           ).map(([k, label, Icon]) => {
-            const count = k === 'receiving' ? pendingCount(receiving) : k === 'requests' ? pendingCount(requests) : pendingCount(expenses);
+            const count = k === 'receiving' ? pendingCount(receiving) : k === 'requests' ? pendingCount(requests) : k === 'expenses' ? pendingCount(expenses) : pendingCount(shopChanges);
             return (
               <button
                 key={k}
@@ -265,6 +296,45 @@ export default function TransactionsPage() {
                         <span style={{ color: 'var(--muted)', fontSize: 12.5 }}>{t('tx.approved')}</span>
                       ) : (
                         <button className="btn btn-primary btn-sm" disabled={busy === r.id} onClick={() => doApprove(r, 'expenses')}>
+                          {busy === r.id ? t('tx.approving') : t('tx.approve')}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        )}
+        {tab === 'shopChange' && (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>{t('tx.shop')}</th>
+                <th>{t('tx.date')}</th>
+                <th>{t('tx.manager')}</th>
+                <th>{t('tx.status')}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedShopChanges.length === 0 ? (
+                <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--muted)', padding: 32 }}>{t('tx.emptyShopChange')}</td></tr>
+              ) : (
+                sortedShopChanges.map((r) => (
+                  <tr key={r.id}>
+                    <td style={{ fontWeight: 600 }}>{r.shopFromName}
+                      <ArrowRight size={13} style={{ margin: '0 6px', verticalAlign: -2 }} />
+                      <strong>{r.shopToName}</strong>
+                    </td>
+                    <td style={{ whiteSpace: 'nowrap', color: 'var(--muted)' }}>{r.submittedAt ? fmtDate(r.submittedAt.slice(0, 10)) : '—'}</td>
+                    <td>{r.managerName}</td>
+                    <td><StatusBadge status={r.status} /></td>
+                    <td>
+                      {r.status === 'approved' ? (
+                        <span style={{ color: 'var(--muted)', fontSize: 12.5 }}>{t('tx.approved')}</span>
+                      ) : (
+                        <button className="btn btn-primary btn-sm" disabled={busy === r.id} onClick={() => doApprove(r, 'shopChange')}>
                           {busy === r.id ? t('tx.approving') : t('tx.approve')}
                         </button>
                       )}

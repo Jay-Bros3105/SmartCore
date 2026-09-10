@@ -94,17 +94,26 @@ export default function DailyReportScreen({ navigation }: Props) {
   const varianceColor =
     variance === undefined ? colors.charcoal : variance === 0 ? colors.success : variance < 0 ? colors.danger : colors.gold;
 
-  const renderStepper = () => (
-    <View style={styles.stepper}>
-      <Pressable style={styles.stepperBtn} onPress={() => setDate(shiftDate(date, -1))} hitSlop={8}>
-        <Ionicons name="chevron-back" size={18} color={colors.sky} />
-      </Pressable>
-      <Text style={styles.stepperLabel}>{formatDateLabel(date)}</Text>
-      <Pressable style={styles.stepperBtn} onPress={() => setDate(shiftDate(date, 1))} hitSlop={8}>
-        <Ionicons name="chevron-forward" size={18} color={colors.sky} />
-      </Pressable>
-    </View>
-  );
+  const renderStepper = () => {
+    const today = todayKey();
+    const canForward = date < today;
+    return (
+      <View style={styles.stepper}>
+        <Pressable style={styles.stepperBtn} onPress={() => setDate(shiftDate(date, -1))} hitSlop={8}>
+          <Ionicons name="chevron-back" size={18} color={colors.sky} />
+        </Pressable>
+        <Text style={styles.stepperLabel}>{formatDateLabel(date)}</Text>
+        <Pressable
+          style={[styles.stepperBtn, !canForward && styles.stepperBtnDisabled]}
+          disabled={!canForward}
+          onPress={() => setDate(shiftDate(date, 1))}
+          hitSlop={8}
+        >
+          <Ionicons name="chevron-forward" size={18} color={canForward ? colors.sky : colors.border} />
+        </Pressable>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.flex}>
@@ -254,6 +263,10 @@ const makeStyles = (c: ThemeColors) =>
       backgroundColor: c.surfaceAlt,
       borderRadius: radius.pill,
       padding: 8,
+    },
+    stepperBtnDisabled: {
+      backgroundColor: c.surfaceAlt,
+      opacity: 0.5,
     },
     stepperLabel: {
       fontFamily: fonts.bodySemiBold,

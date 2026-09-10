@@ -113,9 +113,8 @@ export default function TransactionsScreen({ navigation }: Props) {
             ]}
           >
             <Text style={[styles.noteText, { color: colors.textMuted }]}>
-              Note: A manager never enters sold quantities or revenue — you only
-              record the actual stock state, and the system calculates the rest.
-              (Proposal · Section 4)
+              Note: You only record the actual stock state. The system
+              calculates sold quantities, revenue and expected cash for you.
             </Text>
           </View>
         </ScrollView>

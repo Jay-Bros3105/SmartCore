@@ -534,14 +534,45 @@ export async function approveClosing(id: string): Promise<{ ok: boolean; message
 
   const closing = mapClosingReport(id, data);
   const nextDate = addDays(closing.date, 1);
-  // Items za kesho = zilizobaki (remaining) kutoka closing ya leo.
-  const nextItems: CurrentStockItem[] = closing.items
-    .filter((it) => it.remaining > 0)
-    .map((it) => ({ name: it.name, qty: it.remaining, price: it.price }));
+
+  // REFERENCE = CURRENT STOCK ya siku iliyofungwa (admin ndiye aiendelee kuihifadhi:
+  //  ameongeza bidhaa mchana 4->10, ameondoa bidhaa, n.k.). Hizo ndizo kwa kesho.
+  //  Kwa bidhaa zilizoonekana kwenye closing report, kiasi kinachukuliwa kuwa ni
+  //  REMAINING (idiadi halisi iliyobaki mkononi); bidhaa ambazo admin aliongeza
+  //  baada ya closing kutuma zinabaki kwa idadi yao ya current.
+  const currentRef = doc(getAdminDb(), COLLECTIONS.currentStocks, `${closing.shopId}_${closing.date}`);
+  const currentSnap = await getDoc(currentRef);
+  const currentArr = currentSnap.exists()
+    ? ((currentSnap.data() as Record<string, unknown>).items as Record<string, unknown>[] | undefined) ?? []
+    : [];
+
+  let nextItems: CurrentStockItem[];
+  if (currentArr.length > 0) {
+    const byNameFromClosing = new Map<string, number>();
+    for (const it of closing.items) byNameFromClosing.set(it.name, it.remaining);
+    nextItems = currentArr
+      .map((r) => {
+        const name = String(r.name ?? '');
+        const qty = byNameFromClosing.has(name)
+          ? Math.max(0, Number(byNameFromClosing.get(name)) || 0)
+          : Number(r.qty ?? 0);
+        return { name, qty, price: Number(r.price ?? 0) };
+      })
+      .filter((it) => it.qty > 0);
+    if (nextItems.length === 0) {
+      nextItems = closing.items
+        .filter((it) => it.remaining > 0)
+        .map((it) => ({ name: it.name, qty: it.remaining, price: it.price }));
+    }
+  } else {
+    nextItems = closing.items
+      .filter((it) => it.remaining > 0)
+      .map((it) => ({ name: it.name, qty: it.remaining, price: it.price }));
+  }
   const total = nextItems.reduce((s, i) => s + i.qty * i.price, 0);
 
-  await updateDoc(ref, { status: 'approved', approvedAt: new Date().toISOString() });
-
+  // Andika docs zote KABLA ya kuweka status approved — kama hii itashindikana
+  // hali inabaki 'pending_admin' na admin anaweza kurudia tena (setDoc ni idempotent).
   const openingPayload = {
     shopId: closing.shopId,
     shopName: closing.shopName,
@@ -565,19 +596,9 @@ export async function approveClosing(id: string): Promise<{ ok: boolean; message
     },
     { merge: true }
   );
-  // Current Stock ya LEO pia inaji-update kuwa = remaining (zilizobaki mkononi
-  //  baada ya siku kuisha) — hivyo list ya current stock inaonyesha ukweli.
-  await setDoc(
-    doc(getAdminDb(), COLLECTIONS.currentStocks, `${closing.shopId}_${closing.date}`),
-    {
-      shopId: closing.shopId,
-      shopName: closing.shopName,
-      date: closing.date,
-      items: nextItems,
-      createdAt: new Date().toISOString(),
-    },
-    { merge: true }
-  );
+  // Kumbuka: SISI HATUANDIKI tena current ya LEO (siku iliyofungwa) kuwa 'remaining'.
+  //  Ukweli wetu: opening_leo == current_leo daima; remaining inakwenda tu kwa kesho.
+  await updateDoc(ref, { status: 'approved', approvedAt: new Date().toISOString() });
   return { ok: true };
 }
 
@@ -634,9 +655,9 @@ function mapCurrentStock(id: string, data: Record<string, unknown>): CurrentStoc
 }
 
 /** Current Stock ya duka kwa tarehe fulani (default: leo).
- *  Hudundika: kama Current Stock iliyohifadhiwa ni ndogo kuliko Opening ya siku
- *  hiyo hiyo (mf. iliandikwa list ya zamani), inarudisha UNION ya opening + current
- *  ili admin asioniwe list iliyopungua/ya zamani — inaweza kuongezewa mchana. */
+ *  Current Stock ni CHANZO CHA UKWELI — closing inasoma hiyo, na approval ya
+ *  closing inai-sync kila siku (inaji-update kuwa = remaining). Tunaonyesha
+ *  items zake TUPU; opening hutumika tu ikiwa current haina items yoyote. */
 export async function getCurrentStock(
   shopId: string,
   date: string
@@ -660,16 +681,12 @@ export async function getCurrentStock(
     : [];
 
   let items: CurrentStockItem[];
-  if (openingItems.length === 0) {
+  if (currentItems.length > 0) {
     items = currentItems;
-  } else if (currentItems.length >= openingItems.length) {
-    items = currentItems;
+  } else if (openingItems.length > 0) {
+    items = openingItems;
   } else {
-    const byName = new Map(openingItems.map((i) => [i.name, i]));
-    for (const it of currentItems) {
-      if (!byName.has(it.name)) byName.set(it.name, it);
-    }
-    items = Array.from(byName.values());
+    items = [];
   }
 
   if (items.length === 0 && !snap.exists() && !openingSnap.exists()) return null;
@@ -706,6 +723,15 @@ export async function saveCurrentStock(
       items,
       createdAt: existing?.createdAt ?? new Date().toISOString(),
     },
+    { merge: true }
+  );
+
+  // Mirror kwenye opening — kanuni: opening == current daima, kwa hivyo
+  // bidhaa/idiadi zozote zinazobadilishwa katikati ya siku zisibu mpishano.
+  const total = items.reduce((s, i) => s + i.qty * i.price, 0);
+  await setDoc(
+    doc(getAdminDb(), COLLECTIONS.openingStocks, `${shopId}_${date}`),
+    { shopId, shopName, date, items, total },
     { merge: true }
   );
 }
@@ -1060,12 +1086,26 @@ export async function approveStockReceiving(id: string): Promise<{ ok: boolean; 
     byName.set(it.name, { name: it.name, qty: (prev?.qty ?? 0) + it.qty, price: prev?.price ?? it.price });
   }
   const merged = [...byName.values()];
+  const mergedTotal = merged.reduce((s, i) => s + i.qty * i.price, 0);
 
   await setDoc(
     stockRef,
     { shopId, shopName, date, items: merged, createdAt: new Date().toISOString() },
     { merge: true }
   );
+
+  // Weka sawa pia kwenye OPENING ya siku hiyo — kanuni yetu: opening == current
+  // daima, hivyo bidhaa zilizopokelewa zionekane kwenye closing (current) NA
+  // zisibu mpishano na opening.
+  const openingRef = doc(getAdminDb(), COLLECTIONS.openingStocks, `${shopId}_${date}`);
+  const openingSnap = await getDoc(openingRef);
+  if (openingSnap.exists() || items.length > 0) {
+    await setDoc(
+      openingRef,
+      { shopId, shopName, date, items: merged, total: mergedTotal },
+      { merge: true }
+    );
+  }
   return { ok: true };
 }
 
@@ -1088,13 +1128,96 @@ export async function approveExpense(id: string): Promise<{ ok: boolean; message
   return { ok: true };
 }
 
-/** Total ya pending transactions zote (receiving + requests + expenses). */
+/* ===================================================== SHOP CHANGE (wasimamizi)
+ * Msimamizi anatumia app kujaza ombi (from/to/name). Admin anauidhinisha →
+ * registration ya msimamizi inahamia duka la mpya (developer): app hiyo
+ * ichwaanapo kita-approved, msimamizi anahamia duka la mpya moja kwa moja. */
+
+export type ShopChangeRow = {
+  id: string;
+  userId: string;
+  managerName: string;
+  shopFromId: string;
+  shopFromName: string;
+  shopToId: string;
+  shopToName: string;
+  status: 'pending_admin' | 'approved' | 'rejected';
+  submittedAt?: string;
+  approvedAt?: string;
+};
+
+export async function listShopChangeRequests(): Promise<ShopChangeRow[]> {
+  if (!isFirebaseConfigured()) return [];
+  const snap = await getDocs(collection(getAdminDb(), COLLECTIONS.shopChangeRequests));
+  let all: ShopChangeRow[] = snap.docs.map((d) => {
+    const data = d.data() as Record<string, unknown>;
+    const status = String(data.status ?? '');
+    return {
+      id: d.id,
+      userId: String(data.userId ?? ''),
+      managerName: String(data.managerName ?? ''),
+      shopFromId: String(data.shopFromId ?? ''),
+      shopFromName: String(data.shopFromName ?? ''),
+      shopToId: String(data.shopToId ?? ''),
+      shopToName: String(data.shopToName ?? ''),
+      status: (status === 'approved' || status === 'rejected' ? status : 'pending_admin') as ShopChangeRow['status'],
+      submittedAt: data.submittedAt ? String(data.submittedAt) : undefined,
+      approvedAt: data.approvedAt ? String(data.approvedAt) : undefined,
+    };
+  });
+  const ids = await scopedShopIds();
+  if (ids) all = all.filter((r) => ids.has(r.shopFromId) || ids.has(r.shopToId));
+  return all;
+}
+
+/** Admin anaidhinisha msimamizi ahamie duka jingine:
+ *  - anasasisha registration ya msimamizi (pendingRegistrations/{userId})
+ *    → branchId/branchName va duka la mpya;
+ *  - anabandika status 'approved' kwenye ombi → app inatembea papo hapo. */
+export async function approveShopChange(id: string): Promise<{ ok: boolean; message?: string }> {
+  if (!isFirebaseConfigured()) return { ok: false, message: 'Firebase not configured.' };
+  const ref = doc(getAdminDb(), COLLECTIONS.shopChangeRequests, id);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return { ok: false, message: 'Request not found.' };
+  const data = snap.data() as Record<string, unknown>;
+  if (data.status === 'approved') return { ok: true };
+
+  const userId = String(data.userId ?? '');
+  const shopToId = String(data.shopToId ?? '');
+  const shopToName = String(data.shopToName ?? '');
+  const shopFromId = String(data.shopFromId ?? '');
+
+  if (userId && shopToId) {
+    const regRef = doc(getAdminDb(), COLLECTIONS.pendingRegistrations, userId);
+    const regSnap = await getDoc(regRef);
+    if (regSnap.exists()) {
+      const reg = regSnap.data() as Record<string, unknown>;
+      const toShop = shopToId;
+      const toShopSnap = await getDoc(doc(getAdminDb(), COLLECTIONS.branches, toShop));
+      const toData = toShopSnap.exists() ? (toShopSnap.data() as Record<string, unknown>) : {};
+      await updateDoc(regRef, {
+        branchId: shopToId,
+        branchName: shopToName,
+        branchRegion: String(toData.region ?? reg.branchRegion ?? ''),
+        branchAddress: String(toData.address ?? reg.branchAddress ?? ''),
+        movedFromId: shopFromId,
+        movedAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  await updateDoc(ref, { status: 'approved', approvedAt: new Date().toISOString() });
+  return { ok: true };
+}
+
+/** Total ya pending transactions zote (receiving + requests + expenses + shop change). */
 export async function countPendingTransactions(): Promise<number> {
   if (!isFirebaseConfigured()) return 0;
-  const [r, q, e] = await Promise.all([
+  const [r, q, e, s] = await Promise.all([
     getDocs(query(collection(getAdminDb(), COLLECTIONS.stockReceiving), where('status', '==', 'pending_admin'))),
     getDocs(query(collection(getAdminDb(), COLLECTIONS.stockRequests), where('status', '==', 'pending_admin'))),
     getDocs(query(collection(getAdminDb(), COLLECTIONS.expenses), where('status', '==', 'pending_admin'))),
+    getDocs(query(collection(getAdminDb(), COLLECTIONS.shopChangeRequests), where('status', '==', 'pending_admin'))),
   ]);
-  return r.size + q.size + e.size;
+  return r.size + q.size + e.size + s.size;
 }

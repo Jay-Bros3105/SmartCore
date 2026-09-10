@@ -229,3 +229,18 @@ export type ExpenseSubmission = {
   managerName?: string;
   submittedAt?: string;
 };
+
+/** OMBI LA KUBADILISHA DUKA — msimamizi hulijaza (from/to/name), admin
+ *  anaapprove, na baada ya hapo msimamizi anahamia duka la mpya. */
+export type ShopChangeRequest = {
+  id: string;
+  userId: string;
+  managerName: string;
+  shopFromId: string;
+  shopFromName: string;
+  shopToId: string;
+  shopToName: string;
+  status: 'pending_admin' | 'approved' | 'rejected';
+  submittedAt: string;
+  approvedAt?: string;
+};

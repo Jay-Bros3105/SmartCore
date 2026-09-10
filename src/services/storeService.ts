@@ -46,6 +46,7 @@ import type {
   OnboardingResult,
   OpeningStock,
   RegistrationStatus,
+  ShopChangeRequest,
   StockItem,
   StockReceiving,
   StockReceivingItem,
@@ -54,6 +55,7 @@ import type {
 } from './types';
 
 const PROFILE_KEY = 'neosmartcore.managerProfile';
+const SHOP_CHANGE_KEY = 'neosmartcore.shopChangeRequest';
 
 /** Siku ya leo kwa format `YYYY-MM-DD` (kwa jina la doc za stock). */
 export function todayDateKey(d = new Date()): string {
@@ -641,6 +643,104 @@ export async function updateManager(updates: Partial<ManagerProfile>): Promise<v
 /** Weka upya (remove) profile ya msimamizi — kwa kujaribu onboarding tena. */
 export async function clearManagerProfile(): Promise<void> {
   await AsyncStorage.removeItem(PROFILE_KEY);
+}
+
+/* ==================================================== SHOP CHANGE (tuma ombi)
+ *  Kubadilisha duka si rahisi: msimamizi anajaza from/to/name, ana-submit;
+ *  admin anapothibitisha ombi, msimamizi anahamia duka la mpya papo hapo. */
+
+function mapShopChangeRequest(id: string, data: Record<string, unknown>): ShopChangeRequest {
+  const status = String(data.status ?? '');
+  return {
+    id,
+    userId: String(data.userId ?? ''),
+    managerName: String(data.managerName ?? ''),
+    shopFromId: String(data.shopFromId ?? ''),
+    shopFromName: String(data.shopFromName ?? ''),
+    shopToId: String(data.shopToId ?? ''),
+    shopToName: String(data.shopToName ?? ''),
+    status: (status === 'approved' || status === 'rejected' ? status : 'pending_admin') as ShopChangeRequest['status'],
+    submittedAt: String(data.submittedAt ?? ''),
+    approvedAt: data.approvedAt ? String(data.approvedAt) : undefined,
+  };
+}
+
+/** Tuma ombi la kubadilisha duka — linakwenda kwa admin kwa uthibitisho. */
+export async function submitShopChange(toShop: Branch): Promise<{ ok: boolean; message?: string }> {
+  if (!isFirebaseConfigured()) return { ok: false, message: 'Firebase not configured.' };
+  const manager = await getCurrentManager();
+  if (!manager) return { ok: false, message: 'Manager profile not found.' };
+  if (!toShop?.id || !toShop.name) return { ok: false, message: 'Choose the shop you are moving to.' };
+  if (toShop.id === manager.branchId) return { ok: false, message: 'That is your current shop.' };
+  const existing = await getActiveShopChange();
+  if (existing && existing.status === 'pending_admin') {
+    return { ok: false, message: 'You already have a pending shop change request.' };
+  }
+  const ref = await addDoc(collection(getDB(), COLLECTIONS.shopChangeRequests), {
+    userId: manager.userId,
+    managerName: manager.fullName ?? '',
+    shopFromId: manager.branchId,
+    shopFromName: manager.branchName ?? '',
+    shopToId: toShop.id,
+    shopToName: toShop.name,
+    status: 'pending_admin',
+    submittedAt: new Date().toISOString(),
+  });
+  await AsyncStorage.setItem(SHOP_CHANGE_KEY, ref.id);
+  return { ok: true };
+}
+
+/** Ombi la sasa lililotumwa na msimamizi huyu (halala kwenye kifaa). */
+export async function getActiveShopChange(): Promise<ShopChangeRequest | null> {
+  try {
+    const id = await AsyncStorage.getItem(SHOP_CHANGE_KEY);
+    if (!id) return null;
+    const snap = await getDoc(doc(getDB(), COLLECTIONS.shopChangeRequests, id));
+    if (!snap.exists()) {
+      await AsyncStorage.removeItem(SHOP_CHANGE_KEY);
+      return null;
+    }
+    return mapShopChangeRequest(id, snap.data() as Record<string, unknown>);
+  } catch {
+    return null;
+  }
+}
+
+/** Subscriber — ombi linapothibitishwa na admin, msimamizi analipata papo hapo. */
+export function subscribeShopChange(
+  onData: (r: ShopChangeRequest | null) => void
+): () => void {
+  let unsub: (() => void) | undefined;
+  AsyncStorage.getItem(SHOP_CHANGE_KEY)
+    .then((id) => {
+      if (!id) {
+        onData(null);
+        return;
+      }
+      unsub = onSnapshot(
+        doc(getDB(), COLLECTIONS.shopChangeRequests, id),
+        (snap) => {
+          if (!snap.exists()) {
+            AsyncStorage.removeItem(SHOP_CHANGE_KEY);
+            onData(null);
+            return;
+          }
+          onData(mapShopChangeRequest(snap.id, snap.data() as Record<string, unknown>));
+        },
+        () => {}
+      );
+    })
+    .catch(() => onData(null));
+  return () => {
+    unsub?.();
+    unsub = undefined;
+  };
+}
+
+/** Ombi limethibitishwa → msimamizi anahamia duka la mpya mara moja. */
+export async function applyShopChange(req: ShopChangeRequest): Promise<void> {
+  await updateManager({ branchId: req.shopToId, branchName: req.shopToName });
+  await AsyncStorage.removeItem(SHOP_CHANGE_KEY);
 }
 
 /* ==================================================== CASH RECONCILIATION */

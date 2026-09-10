@@ -13,9 +13,9 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import StatusPill from '../components/StatusPill';
 import PinPad from '../components/PinPad';
 import { useTheme } from '../theme/ThemeContext';
+import AppWatermark from '../components/AppWatermark';
 import { fonts, radius, spacing } from '../theme/theme';
 import {
   getCurrentManager,
@@ -119,6 +119,7 @@ export default function MoreScreen({ navigation }: Props) {
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
+      <AppWatermark />
       <SafeAreaView edges={['top']} style={styles.flex}>
         <View style={styles.heading}>
           <View style={styles.headingRow}>
@@ -164,10 +165,6 @@ export default function MoreScreen({ navigation }: Props) {
                 </Text>
               </View>
             </View>
-            <StatusPill
-              tone={manager?.status === 'approved' ? 'ok' : 'warning'}
-              label={manager?.status === 'approved' ? 'Approved' : 'Waiting'}
-            />
           </View>
 
           {/* Settings */}

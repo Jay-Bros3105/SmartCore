@@ -15,6 +15,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import ModuleHeader from '../components/ModuleHeader';
 import { useTheme, type ThemeColors } from '../theme/ThemeContext';
+import AppWatermark from '../components/AppWatermark';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts, radius, spacing } from '../theme/theme';
 import {
@@ -123,6 +124,7 @@ export default function StockRequestScreen({ navigation }: Props) {
   if (reviewMode && !submittedId) {
     return (
       <View style={styles.flex}>
+        <AppWatermark />
         <ModuleHeader
           title="Preview Stock Request"
           subtitle="Check the request before sending to admin"
@@ -179,6 +181,7 @@ export default function StockRequestScreen({ navigation }: Props) {
   if (submittedId) {
     return (
       <View style={styles.flex}>
+        <AppWatermark />
         <ModuleHeader
           title="Request Stock"
           subtitle="Send a request to Admin"
@@ -204,6 +207,7 @@ export default function StockRequestScreen({ navigation }: Props) {
 
   return (
     <View style={styles.flex}>
+      <AppWatermark />
       <ModuleHeader
         title="Request Stock"
         subtitle="Send a request to Admin"

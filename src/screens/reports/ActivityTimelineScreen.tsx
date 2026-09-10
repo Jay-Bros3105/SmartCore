@@ -11,6 +11,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../navigation/RootNavigator';
 import ModuleHeader from '../../components/ModuleHeader';
 import { useTheme, type ThemeColors } from '../../theme/ThemeContext';
+import AppWatermark from '../../components/AppWatermark';
 import { fonts, radius, spacing } from '../../theme/theme';
 import {
   getCashReconciliationsForBranch,
@@ -197,6 +198,7 @@ export default function ActivityTimelineScreen({ navigation }: Props) {
 
   return (
     <View style={styles.flex}>
+      <AppWatermark />
       <ModuleHeader
         title="Shop Activity Timeline"
         subtitle={`${manager?.branchName ?? 'Your shop'} · every event in order`}

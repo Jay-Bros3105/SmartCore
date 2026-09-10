@@ -12,10 +12,11 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import ModuleHeader from '../components/ModuleHeader';
 import StatusPill from '../components/StatusPill';
 import { useTheme } from '../theme/ThemeContext';
+import AppWatermark from '../components/AppWatermark';
 import { colors, fonts, radius, spacing } from '../theme/theme';
 import {
   getCurrentManager,
-  subscribeCurrentStock,
+  subscribeLatestCurrentStock,
   subscribeOpeningStock,
 } from '../services/storeService';
 import type { CurrentStock, ManagerProfile, OpeningStock } from '../services/types';
@@ -39,7 +40,7 @@ export default function CurrentStockScreen({ navigation }: Props) {
         if (cancelled) return;
         setManager(m);
         if (m?.branchId) {
-          unsubCurrent = subscribeCurrentStock(
+          unsubCurrent = subscribeLatestCurrentStock(
             m.branchId,
             (c) => {
               if (cancelled) return;
@@ -79,6 +80,7 @@ export default function CurrentStockScreen({ navigation }: Props) {
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
+      <AppWatermark />
       <ModuleHeader title="Current Stock" subtitle="Stock updated by your Admin" onBack={() => navigation.goBack()} />
       <SafeAreaView style={styles.flex} edges={['bottom']}>
         <ScrollView

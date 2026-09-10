@@ -17,9 +17,7 @@ import {
   doc,
   getDoc,
   getDocs,
-  limit,
   onSnapshot,
-  orderBy,
   query,
   setDoc,
   updateDoc,
@@ -393,16 +391,22 @@ export function subscribeOpeningStock(
   return onSnapshot(
     q,
     (snap) => {
-      const today = dateKey ?? todayDateKey();
       const docs = snap.docs
         .map((d) => mapOpeningStock(d.id, d.data() as Record<string, unknown>))
         .sort((a, b) => b.date.localeCompare(a.date));
-      const current =
-        docs.find((o) => o.date === today && o.status !== 'confirmed') ??
-        docs.find((o) => o.status !== 'confirmed') ??
-        docs.find((o) => o.date === today) ??
-        docs[0];
-      onData(current ?? null);
+      if (dateKey) {
+        // Kwa siku maalumu (mf. closing inatafuta opening ya kesho): siku hiyo pekee.
+        const exact =
+          docs.find((o) => o.date === dateKey && o.status !== 'confirmed') ??
+          docs.find((o) => o.date === dateKey) ??
+          null;
+        onData(exact);
+        return;
+      }
+      // Shop Opening: onyesha SESSION YA MWISHO daima (docs[0]). Hakuna
+      // auto-advance kwenda doc nyingine baada ya kuthibitisha — hivyo list
+      // uliyoithibitisha ndio inabaki ile ile, hata ukirudi upya kwenye screen.
+      onData(docs[0] ?? null);
     },
     (err) => onError?.(err)
   );
@@ -440,6 +444,36 @@ export function subscribeCurrentStock(
         return;
       }
       onData(mapCurrentStock(snap.id, snap.data() as Record<string, unknown>));
+    },
+    (err) => onError?.(err)
+  );
+}
+
+/** Kusubskriba current stock YA HIFADHI ILIYOPO SASA (session ya mwisho) kwa duka.
+ *  Inachukua doc ya kwanza kwenye list (kwa date desc) — si lazima tarehe ya leo,
+ *  kwa sababu duka linaweza kufunguliwa/kufungwa mara nyingi kwa siku moja.
+ *  Hii ndiyo selection inayohakikisha closing pill ya "Current" inakuwa sawasawa
+ *  na current iliyopo kwelikweli (ambayo admin ndiye anaihusisha). */
+export function subscribeLatestCurrentStock(
+  branchId: string,
+  onData: (stock: CurrentStock | null) => void,
+  onError?: (err: unknown) => void
+): () => void {
+  if (!isFirebaseConfigured()) {
+    onData(null);
+    return () => {};
+  }
+  const q = query(
+    collection(getDB(), COLLECTIONS.currentStocks),
+    where('shopId', '==', branchId)
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      const docs = snap.docs
+        .map((d) => mapCurrentStock(d.id, d.data() as Record<string, unknown>))
+        .sort((a, b) => b.date.localeCompare(a.date));
+      onData(docs[0] ?? null);
     },
     (err) => onError?.(err)
   );
@@ -846,40 +880,49 @@ export async function getDayMoneyOut(
   if (!isFirebaseConfigured()) return empty;
   try {
     const date = dateKey ?? todayDateKey();
+    // Inapakia `where('shopId')` TU kisha kuchuja `date` client-side —
+    // hii inaepuka composite index ambayo si ya kiotomatiki kwenye Firestore
+    // (vinginevyo getDocs inakataa na tunarudi 0). Data kwa kila duka ni ndogo.
     const [expSnap, recSnap, reqSnap] = await Promise.all([
       getDocs(
         query(
           collection(getDB(), COLLECTIONS.expenses),
-          where('shopId', '==', branchId),
-          where('date', '==', date)
+          where('shopId', '==', branchId)
         )
       ),
       getDocs(
         query(
           collection(getDB(), COLLECTIONS.stockReceiving),
-          where('shopId', '==', branchId),
-          where('date', '==', date)
+          where('shopId', '==', branchId)
         )
       ),
       getDocs(
         query(
           collection(getDB(), COLLECTIONS.stockRequests),
-          where('shopId', '==', branchId),
-          where('date', '==', date)
+          where('shopId', '==', branchId)
         )
       ),
     ]);
     let expenses = 0;
     expSnap.forEach((d) => {
-      expenses += Number((d.data() as Record<string, unknown>).total ?? 0) || 0;
+      const data = d.data() as Record<string, unknown>;
+      if (String(data.date ?? '') === date) {
+        expenses += Number(data.total ?? 0) || 0;
+      }
     });
     let receiving = 0;
     recSnap.forEach((d) => {
-      receiving += txTotalOf(d.data() as Record<string, unknown>);
+      const data = d.data() as Record<string, unknown>;
+      if (String(data.date ?? '') === date) {
+        receiving += txTotalOf(data);
+      }
     });
     let request = 0;
     reqSnap.forEach((d) => {
-      request += txTotalOf(d.data() as Record<string, unknown>);
+      const data = d.data() as Record<string, unknown>;
+      if (String(data.date ?? '') === date) {
+        request += txTotalOf(data);
+      }
     });
     return { expenses, receiving, request, total: expenses + receiving + request };
   } catch {
@@ -1077,18 +1120,20 @@ export function subscribeExpenses(
     return () => {};
   }
   const max = limitN ?? 20;
+  // `where('shopId')` TU + sort client-side. Hii inaepuka composite index ya
+  // `orderBy('submittedAt')` ambayo si ya kiotomatiki (yaisipokuwepo, onSnapshot
+  // inakufa kimya na historia inaonekana tupu/0).
   const q = query(
     collection(getDB(), COLLECTIONS.expenses),
-    where('shopId', '==', branchId),
-    orderBy('submittedAt', 'desc'),
-    limit(max)
+    where('shopId', '==', branchId)
   );
   const unsub = onSnapshot(
     q,
     (snap) => {
-      onData(
-        snap.docs.map((d) => mapExpenseSubmission(d.id, d.data() as Record<string, unknown>))
-      );
+      const all = snap.docs
+        .map((d) => mapExpenseSubmission(d.id, d.data() as Record<string, unknown>))
+        .sort((a, b) => (b.submittedAt ?? '').localeCompare(a.submittedAt ?? ''));
+      onData(all.slice(0, max));
     },
     (err) => onError?.(err)
   );

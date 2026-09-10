@@ -12,6 +12,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../navigation/RootNavigator';
 import ModuleHeader from '../../components/ModuleHeader';
 import { useTheme, type ThemeColors } from '../../theme/ThemeContext';
+import AppWatermark from '../../components/AppWatermark';
 import { fonts, radius, spacing } from '../../theme/theme';
 import {
   getCurrentManager,
@@ -117,6 +118,7 @@ export default function DailyReportScreen({ navigation }: Props) {
 
   return (
     <View style={styles.flex}>
+      <AppWatermark />
       <ModuleHeader
         title="Daily Business Report"
         subtitle="Sales, expenses and cash for your shop"

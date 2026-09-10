@@ -6,6 +6,7 @@ import {
   getCurrentStock,
   listProducts,
   listShops,
+  resolveActiveStockDate,
   saveCurrentStock,
   type CurrentStockItem,
   type Product,
@@ -52,20 +53,32 @@ export default function StockPage() {
       router.replace('/login');
       return;
     }
+    let cancelled = false;
     listShops().then((shopsArr) => {
+      if (cancelled) return;
       setShops(shopsArr);
       if (shopsArr.length > 0) {
         const first = shopsArr[0].id;
         setShopId(first);
-        loadShopStock(first, todayKey());
+        resolveActiveStockDate(first, todayKey()).then((activeDate) => {
+          if (cancelled) return;
+          setDate(activeDate);
+          loadShopStock(first, activeDate);
+        });
       }
     });
+    return () => {
+      cancelled = true;
+    };
   }, [router, loadShopStock]);
 
   const selectShop = (sid: string) => {
     setShopId(sid);
     setSavedMsg('');
-    loadShopStock(sid, date);
+    resolveActiveStockDate(sid, todayKey()).then((activeDate) => {
+      setDate(activeDate);
+      loadShopStock(sid, activeDate);
+    });
   };
 
   const selectDate = (d: string) => {

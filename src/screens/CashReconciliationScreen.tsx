@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import ModuleHeader from '../components/ModuleHeader';
 import { useTheme, type ThemeColors } from '../theme/ThemeContext';
+import AppWatermark from '../components/AppWatermark';
 import { fonts, radius, spacing } from '../theme/theme';
 import {
   getApprovedSalesRevenue,
@@ -271,6 +272,7 @@ export default function CashReconciliationScreen({ navigation }: Props) {
           : 'Overage of cash';
     return (
       <View style={styles.flex}>
+        <AppWatermark />
         <ModuleHeader
           title="Cash Reconciliation"
           subtitle="Cash in hand vs expected cash"
@@ -386,6 +388,7 @@ export default function CashReconciliationScreen({ navigation }: Props) {
 
   return (
     <View style={styles.flex}>
+      <AppWatermark />
       <ModuleHeader
         title="Cash Reconciliation"
         subtitle="Cash in hand vs expected cash"

@@ -14,6 +14,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import ModuleHeader from '../components/ModuleHeader';
 import { useTheme, type ThemeColors } from '../theme/ThemeContext';
+import AppWatermark from '../components/AppWatermark';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts, radius, spacing } from '../theme/theme';
 import {
@@ -132,6 +133,7 @@ export default function ExpensesScreen({ navigation }: Props) {
   if (submittedId) {
     return (
       <View style={styles.flex}>
+        <AppWatermark />
         <ModuleHeader
           title="Expenses"
           subtitle="Add costs and their purpose"
@@ -156,6 +158,7 @@ export default function ExpensesScreen({ navigation }: Props) {
 
   return (
     <View style={styles.flex}>
+      <AppWatermark />
       <ModuleHeader
         title="Expenses"
         subtitle="Add costs and their purpose"

@@ -117,38 +117,70 @@ export type CurrentStock = {
   createdAt?: string;
 };
 
-export type OpeningRow = {
-  date: string;
-  shopId: string;
-  shopName: string;
-  totalRevenue: number;
-  approved: boolean;
-  closingId?: string;
-};
-
-/** Safu za kila siku: tarehe | jumla ya mauzo | preview ya closing ya siku hiyo.
- *  Data inatoka kwenye closingReports (mauzo yaliyopokelewa kupitia closing stock). */
-export async function listOpeningRows(): Promise<OpeningRow[]> {
+/** Safu za Opening Stock (bidhaa zilizobaki) za kila siku, kama row yake
+ *  kivyake kwenye dashboard. Data inatoka kwenye openingStocks — ambayo ni
+ *  matokeo ya LAST approval ya closing + marekebisho au receiving yeyote. */
+export async function listOpenings(): Promise<OpeningStockDoc[]> {
   if (!isFirebaseConfigured()) return [];
-  const snap = await getDocs(collection(getAdminDb(), COLLECTIONS.closingReports));
-  let out = snap.docs.map((d) => {
-    const data = d.data() as Record<string, unknown>;
-    const items = Array.isArray(data.items) ? (data.items as Record<string, unknown>[]) : [];
-    const totalRevenue = data.totalRevenue as number;
-    const total = Number(totalRevenue ?? 0) || items.reduce((s, it) => s + Number(it.revenue ?? 0), 0);
-    return {
-      date: String(data.date ?? ''),
-      shopId: String(data.shopId ?? ''),
-      shopName: String(data.shopName ?? ''),
-      totalRevenue: total,
-      approved: String(data.status ?? '') === 'approved',
-      closingId: d.id,
-    };
-  }).sort((a, b) => b.date.localeCompare(a.date) || a.shopName.localeCompare(b.shopName));
+  const snap = await getDocs(collection(getAdminDb(), COLLECTIONS.openingStocks));
+  let out = snap.docs
+    .map((d) => {
+      const data = d.data() as Record<string, unknown>;
+      const items = Array.isArray(data.items)
+        ? (data.items as Record<string, unknown>[]).map((r) => ({
+            name: String(r.name ?? ''),
+            qty: Number(r.qty ?? 0),
+            price: Number(r.price ?? 0),
+          }))
+        : [];
+      return {
+        id: d.id,
+        shopId: String(data.shopId ?? ''),
+        shopName: String(data.shopName ?? ''),
+        date: String(data.date ?? ''),
+        items,
+        total: Number(data.total ?? 0) || items.reduce((s, it) => s + it.qty * it.price, 0),
+        status: (String(data.status ?? 'generated') as OpeningStockDoc['status']) || 'generated',
+        sourceClosingId: data.sourceClosingId ? String(data.sourceClosingId) : undefined,
+        createdAt: data.createdAt ? String(data.createdAt) : undefined,
+        confirmedAt: data.confirmedAt ? String(data.confirmedAt) : undefined,
+        managerConfirmedByName: data.managerConfirmedByName ? String(data.managerConfirmedByName) : undefined,
+      } as OpeningStockDoc;
+    })
+    .sort((a, b) => b.date.localeCompare(a.date) || a.shopName.localeCompare(b.shopName));
 
   const ids = await scopedShopIds();
   if (ids) out = out.filter((r) => ids.has(r.shopId));
   return out;
+}
+
+/** Doc moja ya Opening Stock kwa id yake (kwa preview ya list ndefu). */
+export async function getOpeningDoc(id: string): Promise<OpeningStockDoc | null> {
+  if (!isFirebaseConfigured()) return null;
+  const snap = await getDoc(doc(getAdminDb(), COLLECTIONS.openingStocks, id));
+  if (!snap.exists()) return null;
+  const d = snap;
+  const data = d.data() as Record<string, unknown>;
+  const items = Array.isArray(data.items)
+    ? (data.items as Record<string, unknown>[]).map((r) => ({
+        name: String(r.name ?? ''),
+        qty: Number(r.qty ?? 0),
+        price: Number(r.price ?? 0),
+      }))
+    : [];
+  return {
+    id: d.id,
+    shopId: String(data.shopId ?? ''),
+    shopName: String(data.shopName ?? ''),
+    date: String(data.date ?? ''),
+    items,
+    total: Number(data.total ?? 0) || items.reduce((s, it) => s + it.qty * it.price, 0),
+    status: (String(data.status ?? 'generated') as OpeningStockDoc['status']) || 'generated',
+    sourceClosingId: data.sourceClosingId ? String(data.sourceClosingId) : undefined,
+    createdAt: data.createdAt ? String(data.createdAt) : undefined,
+    confirmedAt: data.confirmedAt ? String(data.confirmedAt) : undefined,
+    managerConfirmedByName: data.managerConfirmedByName ? String(data.managerConfirmedByName) : undefined,
+  } as OpeningStockDoc;
 }
 
 export type OpeningStockDoc = {
@@ -160,6 +192,7 @@ export type OpeningStockDoc = {
   total: number;
   status: 'generated' | 'confirmed' | 'sent';
   sourceClosingId?: string;
+  createdAt?: string;
   confirmedAt?: string;
   managerConfirmedByName?: string;
 };
@@ -655,9 +688,11 @@ function mapCurrentStock(id: string, data: Record<string, unknown>): CurrentStoc
 }
 
 /** Current Stock ya duka kwa tarehe fulani (default: leo).
- *  Current Stock ni CHANZO CHA UKWELI — closing inasoma hiyo, na approval ya
- *  closing inai-sync kila siku (inaji-update kuwa = remaining). Tunaonyesha
- *  items zake TUPU; opening hutumika tu ikiwa current haina items yoyote. */
+ *  Current Stock ndio CHANZO CHA UKWELI PEKEE ya Daily Closing — closing inasoma
+ *  hiyo, na approval inai-sync kila siku (= remaining). Hakuna fallback kwenye
+ *  opening. Ikiwa current ya tarehe iliyoulizwa haipo, tunarudisha session ya
+ *  MWISHO iliyokuwepo (duka linaweza kufunguliwa/kufungwa > mara 2 kwa siku,
+ *  hivyo "current iliyopo sasa" ndiyo muhimu, si ile ya tarehe ya kalenda). */
 export async function getCurrentStock(
   shopId: string,
   date: string
@@ -665,43 +700,30 @@ export async function getCurrentStock(
   if (!isFirebaseConfigured()) return null;
   const ref = doc(getAdminDb(), COLLECTIONS.currentStocks, `${shopId}_${date}`);
   const snap = await getDoc(ref);
-  const currentItems: CurrentStockItem[] = snap.exists()
-    ? mapCurrentStock(snap.id, snap.data() as Record<string, unknown>).items
-    : [];
-
-  const openingSnap = await getDoc(doc(getAdminDb(), COLLECTIONS.openingStocks, `${shopId}_${date}`));
-  const openingItems: CurrentStockItem[] = openingSnap.exists()
-    ? (openingSnap.data() as Record<string, unknown>).items
-      ? (((openingSnap.data() as Record<string, unknown>).items as Record<string, unknown>[]).map((r) => ({
-          name: String(r.name ?? ''),
-          qty: Number(r.qty ?? 0),
-          price: Number(r.price ?? 0),
-        })))
-      : []
-    : [];
-
-  let items: CurrentStockItem[];
-  if (currentItems.length > 0) {
-    items = currentItems;
-  } else if (openingItems.length > 0) {
-    items = openingItems;
-  } else {
-    items = [];
+  if (snap.exists()) {
+    const s = mapCurrentStock(snap.id, snap.data() as Record<string, unknown>);
+    return { id: s.id, shopId, shopName: s.shopName, date: s.date, items: s.items, createdAt: s.createdAt };
   }
+  const latest = await getLatestCurrentStock(shopId);
+  return latest;
+}
 
-  if (items.length === 0 && !snap.exists() && !openingSnap.exists()) return null;
-  return {
-    id: `${shopId}_${date}`,
-    shopId,
-    shopName: String(snap.exists() ? (snap.data() as Record<string, unknown>).shopName ?? '' : ''),
-    date,
-    items,
-    createdAt: snap.exists()
-      ? (snap.data() as Record<string, unknown>).createdAt
-        ? String((snap.data() as Record<string, unknown>).createdAt)
-        : undefined
-      : undefined,
-  };
+/** Doc ya "current" ya session ya mwisho kwa duka (kwa `date` desc). */
+export async function getLatestCurrentStock(shopId: string): Promise<CurrentStock | null> {
+  if (!isFirebaseConfigured()) return null;
+  const q = query(collection(getAdminDb(), COLLECTIONS.currentStocks), where('shopId', '==', shopId));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const docs = snap.docs
+    .map((d) => mapCurrentStock(d.id, d.data() as Record<string, unknown>))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  return docs[0] ?? null;
+}
+
+/** Tarehe ya session ya sasa kupelekwa kwenye current/opening (fallback = leo). */
+export async function resolveActiveStockDate(shopId: string, fallback: string): Promise<string> {
+  const latest = await getLatestCurrentStock(shopId);
+  return latest?.date ?? fallback;
 }
 
 /** Hifadhi Current Stock (msimamizi wa admin ndiye hataweka bidhaa/idiadi
@@ -1065,8 +1087,13 @@ export async function approveStockReceiving(id: string): Promise<{ ok: boolean; 
 
   await updateDoc(ref, { status: 'approved', approvedAt: new Date().toISOString() });
 
-  // Merge into current stock ya siku hiyo.
-  const stockRef = doc(getAdminDb(), COLLECTIONS.currentStocks, `${shopId}_${date}`);
+  // Merge into current stock ya session ILIYOPO SASA (si lazima iwe tarehe ya
+  // leo — duka linaweza kufunguliwa/kufungwa mara nyingi kwa siku). Hii
+  // inahakikisha bidhaa zilizopokelewa zinaonekana mara moja kwenye current
+  // ya app (ambayo inasoma session ya mwisho) na kwenye closing.
+  const active = await getLatestCurrentStock(shopId);
+  const targetDate = active ? active.date : date;
+  const stockRef = doc(getAdminDb(), COLLECTIONS.currentStocks, `${shopId}_${targetDate}`);
   const stockSnap = await getDoc(stockRef);
   const existing = stockSnap.exists()
     ? (stockSnap.data() as Record<string, unknown>).items
@@ -1090,19 +1117,19 @@ export async function approveStockReceiving(id: string): Promise<{ ok: boolean; 
 
   await setDoc(
     stockRef,
-    { shopId, shopName, date, items: merged, createdAt: new Date().toISOString() },
+    { shopId, shopName, date: targetDate, items: merged, createdAt: new Date().toISOString() },
     { merge: true }
   );
 
-  // Weka sawa pia kwenye OPENING ya siku hiyo — kanuni yetu: opening == current
+  // Weka sawa pia kwenye OPENING ya session ile ile — kanuni yetu: opening == current
   // daima, hivyo bidhaa zilizopokelewa zionekane kwenye closing (current) NA
   // zisibu mpishano na opening.
-  const openingRef = doc(getAdminDb(), COLLECTIONS.openingStocks, `${shopId}_${date}`);
+  const openingRef = doc(getAdminDb(), COLLECTIONS.openingStocks, `${shopId}_${targetDate}`);
   const openingSnap = await getDoc(openingRef);
   if (openingSnap.exists() || items.length > 0) {
     await setDoc(
       openingRef,
-      { shopId, shopName, date, items: merged, total: mergedTotal },
+      { shopId, shopName, date: targetDate, items: merged, total: mergedTotal },
       { merge: true }
     );
   }

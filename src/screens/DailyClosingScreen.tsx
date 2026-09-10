@@ -19,16 +19,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import ModuleHeader from '../components/ModuleHeader';
 import { useTheme, type ThemeColors } from '../theme/ThemeContext';
+import AppWatermark from '../components/AppWatermark';
 import { fonts, radius, spacing } from '../theme/theme';
 import {
   getCurrentManager,
   getDayMoneyOut,
   subscribeClosingStock,
-  subscribeCurrentStock,
+  subscribeLatestCurrentStock,
   subscribeOpeningStock,
   submitClosingStock,
 } from '../services/storeService';
-import type { ClosingStock, CurrentStock, ManagerProfile, OpeningStock } from '../services/types';
+import type { ClosingStock, ManagerProfile, OpeningStock } from '../services/types';
 import { shareClosingSalesPdf } from '../utils/stockPdf';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DailyClosing'>;
@@ -193,8 +194,6 @@ export default function DailyClosingScreen({ navigation }: Props) {
     let cancelled = false;
     let unsubClosing: (() => void) | undefined;
     let unsubCurrent: (() => void) | undefined;
-    let unsubOpening: (() => void) | undefined;
-    let currentSeen = false;
 
     // Hakikisha hali inaanzia upya kwa tarehe husika — si reference ya tarehe ya nyuma.
     setClosing(null);
@@ -219,48 +218,27 @@ export default function DailyClosingScreen({ navigation }: Props) {
           () => {},
           date
         );
-        // Priyoriti: Current Stock (opening + ongezeko la admin) ndio kikomo cha closing.
-        unsubCurrent = subscribeCurrentStock(
+        // REFERENCE YA DAILY CLOSING = CURRENT STOCK PEKEE (ile iliyopo SASA kwa admin).
+        // Hakuna fallback kwenye opening. Inasoma "current stock ya session ya mwisho"
+        // ili pill ya Current ihakikiwe na current iliyopo — hata kama session ina
+        // tarehe tofauti (mauzo yanaweza kufunguliwa > mara 2 kwa siku).
+        unsubCurrent = subscribeLatestCurrentStock(
           m.branchId,
           (stk) => {
             if (cancelled) return;
-            if (stk && stk.items.length > 0) {
-              currentSeen = true;
-              setRows(
-                stk.items.map((it, i) => ({
-                  key: `${it.name}-${i}`,
-                  name: it.name,
-                  current: it.qty,
-                  price: it.price,
-                  remaining: '',
-                }))
-              );
-            }
+            const items = stk?.items ?? [];
+            setRows(
+              items.map((it, i) => ({
+                key: `${it.name}-${i}`,
+                name: it.name,
+                current: it.qty,
+                price: it.price,
+                remaining: '',
+              }))
+            );
             setLoading(false);
           },
-          () => {},
-          date
-        );
-        // Fallback: opening stock bado (kama current haijatengenezwa).
-        unsubOpening = subscribeOpeningStock(
-          m.branchId,
-          (o) => {
-            if (cancelled) return;
-            if (!currentSeen && o && o.items.length > 0) {
-              setRows(
-                o.items.map((it, i) => ({
-                  key: `${it.name}-${i}`,
-                  name: it.name,
-                  current: it.qty,
-                  price: it.price,
-                  remaining: '',
-                }))
-              );
-            }
-            setLoading(false);
-          },
-          () => {},
-          date
+          () => {}
         );
       })
       .catch(() => {
@@ -271,7 +249,6 @@ export default function DailyClosingScreen({ navigation }: Props) {
       cancelled = true;
       unsubClosing?.();
       unsubCurrent?.();
-      unsubOpening?.();
     };
   }, [date]);
 
@@ -461,6 +438,7 @@ export default function DailyClosingScreen({ navigation }: Props) {
   if (reviewMode && !submitted) {
     return (
       <View style={styles.flex}>
+        <AppWatermark />
         <ModuleHeader
           title="Review Sales Data"
           subtitle="Check everything before submitting"
@@ -575,6 +553,7 @@ export default function DailyClosingScreen({ navigation }: Props) {
   if (blockedOnOpening) {
     return (
       <View style={styles.flex}>
+        <AppWatermark />
         <ModuleHeader
           title="Daily Closing"
           subtitle="Count the items still in the shop"
@@ -603,6 +582,7 @@ export default function DailyClosingScreen({ navigation }: Props) {
     const approved = closing?.status === 'approved';
     return (
       <View style={styles.flex}>
+        <AppWatermark />
         <ModuleHeader
           title="Daily Closing"
           subtitle="Count the items still in the shop"
@@ -615,6 +595,7 @@ export default function DailyClosingScreen({ navigation }: Props) {
 
   return (
     <View style={styles.flex}>
+      <AppWatermark />
       <ModuleHeader
         title="Daily Closing"
         subtitle="Count the items still in the shop"

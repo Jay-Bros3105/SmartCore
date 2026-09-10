@@ -15,6 +15,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import ModuleHeader from '../components/ModuleHeader';
 import { useTheme, type ThemeColors } from '../theme/ThemeContext';
+import AppWatermark from '../components/AppWatermark';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts, radius, spacing } from '../theme/theme';
 import {
@@ -131,6 +132,7 @@ export default function StockReceivingScreen({ navigation }: Props) {
   if (reviewMode && !submittedId) {
     return (
       <View style={styles.flex}>
+        <AppWatermark />
         <ModuleHeader
           title="Preview Received Stock"
           subtitle="Check the delivery before sending to admin"
@@ -189,6 +191,7 @@ export default function StockReceivingScreen({ navigation }: Props) {
   if (submittedId) {
     return (
       <View style={styles.flex}>
+        <AppWatermark />
         <ModuleHeader
           title="Stock Receiving"
           subtitle="Record received delivery"
@@ -215,6 +218,7 @@ export default function StockReceivingScreen({ navigation }: Props) {
 
   return (
     <View style={styles.flex}>
+      <AppWatermark />
       <ModuleHeader
         title="Stock Receiving"
         subtitle="Record received delivery"

@@ -11,6 +11,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../theme/ThemeContext';
+import AppWatermark from '../components/AppWatermark';
 import { fonts, radius, spacing } from '../theme/theme';
 import type { MainTabParamList } from '../navigation/TabNavigator';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -75,6 +76,7 @@ export default function ReportsScreen({ navigation }: Props) {
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
+      <AppWatermark />
       <SafeAreaView edges={['top']} style={styles.flex}>
         <View style={styles.heading}>
           <View style={styles.headingRow}>

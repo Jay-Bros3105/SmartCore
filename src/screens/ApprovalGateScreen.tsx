@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
+import AppWatermark from '../components/AppWatermark';
 import { fonts, radius, spacing } from '../theme/theme';
 import {
   clearManagerProfile,
@@ -58,6 +59,7 @@ export default function ApprovalGateScreen({ profile, onApproved, onReset }: Pro
 
   return (
     <SafeAreaView style={[styles.flex, { backgroundColor: colors.background }]}>
+      <AppWatermark />
       <View style={styles.content}>
         <View style={styles.hero}>
           <Image

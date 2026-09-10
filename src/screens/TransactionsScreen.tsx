@@ -4,6 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import ActionCard from '../components/ActionCard';
 import { useTheme } from '../theme/ThemeContext';
+import AppWatermark from '../components/AppWatermark';
 import { fonts, radius, spacing } from '../theme/theme';
 import type { MainTabParamList } from '../navigation/TabNavigator';
 
@@ -74,6 +75,7 @@ export default function TransactionsScreen({ navigation }: Props) {
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
+      <AppWatermark />
       <SafeAreaView edges={['top']} style={styles.flex}>
         <View style={styles.heading}>
           <View style={styles.headingRow}>

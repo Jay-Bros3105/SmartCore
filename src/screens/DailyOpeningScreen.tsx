@@ -5,6 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import ModuleHeader from '../components/ModuleHeader';
 import { useTheme, type ThemeColors } from '../theme/ThemeContext';
+import AppWatermark from '../components/AppWatermark';
 import { fonts, radius, spacing } from '../theme/theme';
 import {
   confirmOpeningStock,
@@ -67,14 +68,7 @@ export default function DailyOpeningScreen({ navigation }: Props) {
           m.branchId,
           (o) => {
             if (cancelled) return;
-            setOpening((prev) => {
-              // Mara baada ya kuthibitisha, usirudie kurudi kwenye opening ya zamani
-              // (snapshot inaweza kubadilisha uteuzi baada ya status kuwa 'confirmed').
-              if (prev?.status === 'confirmed') {
-                return o && o.id === prev.id ? o : prev;
-              }
-              return o;
-            });
+            setOpening(o);
             setLoading(false);
           },
           () => {
@@ -103,6 +97,7 @@ export default function DailyOpeningScreen({ navigation }: Props) {
 
   return (
     <View style={styles.flex}>
+      <AppWatermark />
       <ModuleHeader
         title="Shop Opening"
         subtitle="Confirm this morning's opening stock"
@@ -133,8 +128,17 @@ export default function DailyOpeningScreen({ navigation }: Props) {
             <View style={styles.noticeCard}>
               <Ionicons name="information-circle" size={18} color={colors.sky} />
               <Text style={styles.noticeText}>
-                Opening stock for <Text style={{ fontWeight: '700' }}>{opening.date}</Text> — generated from
-                yesterday's approved closing. You can't edit it by hand — confirm it
+                Opening stock for <Text style={{ fontWeight: '700' }}>{opening.date}</Text>
+                {opening.createdAt
+                  ? ` · ${new Date(opening.createdAt).toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}`
+                  : ''}
+                {' '}— generated from yesterday's approved closing. You can't edit it by hand — confirm it
                 matches reality before sales begin.
               </Text>
             </View>

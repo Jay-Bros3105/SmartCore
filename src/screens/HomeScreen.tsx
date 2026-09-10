@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import ActionCard from '../components/ActionCard';
 import { useTheme } from '../theme/ThemeContext';
+import AppWatermark from '../components/AppWatermark';
 import { fonts, radius, spacing } from '../theme/theme';
 import { getCurrentManager, subscribeProducts } from '../services/storeService';
 import type { ShopProduct } from '../services/storeService';
@@ -87,6 +88,7 @@ export default function HomeScreen({ navigation }: Props) {
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
+      <AppWatermark />
       <LinearGradient
         colors={[colors.headerTop, colors.headerBottom]}
         style={styles.header}

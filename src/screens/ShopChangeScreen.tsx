@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTheme } from '../theme/ThemeContext';
+import AppWatermark from '../components/AppWatermark';
 import { fonts, radius, spacing } from '../theme/theme';
 import {
   applyShopChange,
@@ -114,6 +115,7 @@ export default function ShopChangeScreen({ navigation }: Props) {
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
+      <AppWatermark />
       <SafeAreaView edges={['top']} style={styles.flex}>
         <View style={styles.header}>
           <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={styles.backBtn}>

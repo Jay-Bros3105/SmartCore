@@ -6,6 +6,8 @@ import { Menu, X, LogOut, LayoutDashboard, Store, ClipboardList, Users, Package,
 import { LanguageProvider, useLang } from '../lib/i18n';
 import { adminLogout } from '../lib/firebase';
 import { clearSessionAuthed } from '../lib/db';
+import PushNotifications from './PushNotifications';
+import InstallPwa from './InstallPwa';
 
 /** Full-page navigation (badala ya next/link RSC) — Firebase static hosting
  *  inarudisha page sahihi kwa kila URL, hakuna hitaji RSC client nav. */
@@ -51,7 +53,9 @@ export default function RootShell({ children }: { children: React.ReactNode }) {
       setIsDark(true);
     }
     try {
-      const raw = typeof window !== 'undefined' ? sessionStorage.getItem('neo_admin_scope') : null;
+      const raw =
+        (typeof window !== 'undefined' ? localStorage.getItem('neo_admin_scope') : null) ??
+        (typeof window !== 'undefined' ? sessionStorage.getItem('neo_admin_scope') : null);
       if (raw) {
         const s = JSON.parse(raw) as { email?: string; name?: string; regions?: string[] | 'all' };
         setAdminLabel(
@@ -88,6 +92,8 @@ export default function RootShell({ children }: { children: React.ReactNode }) {
       <AuthCtx.Provider value={{ logout }}>
         <ThemeCtx.Provider value={{ isDark, toggle }}>
           {isLogin ? <>{children}</> : <Shell collapsed={collapsed} setCollapsed={setCollapsed} adminLabel={adminLabel} isDark={isDark} toggle={toggle} requestLogout={() => setConfirmLogout(true)} pathname={route}>{children}</Shell>}
+          {!isLogin && <PushNotifications />}
+          <InstallPwa />
           {confirmLogout && <LogoutModal onCancel={() => setConfirmLogout(false)} onConfirm={logout} />}
         </ThemeCtx.Provider>
       </AuthCtx.Provider>
@@ -295,8 +301,8 @@ function Shell({
         </div>
         <div className="content">{children}</div>
 
-        {pathname !== '/setup' && (
-          <NavLink href="/setup" className="fab" title="Add shop" aria-label="Add another shop">
+        {pathname === '/branches' && (
+          <NavLink href="/branches?add=1" className="fab" title="Add shop" aria-label="Add another shop">
             <PlusIcon />
           </NavLink>
         )}

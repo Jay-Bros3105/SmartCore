@@ -22,6 +22,7 @@ import { useLang } from '../../lib/i18n';
 
 export default function BranchesPage() {
   const router = useRouter();
+  const [quickOpen, setQuickOpen] = useState(() => (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('add') === '1' : false));
   const { t } = useLang();
   const [shops, setShops] = useState<Shop[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -172,7 +173,7 @@ export default function BranchesPage() {
         </a>
       </div>
 
-      {shops.length === 0 ? (
+      {shops.length === 0 || quickOpen ? (
         <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
           <div className="module-icon" style={{ width: 60, height: 60, margin: '0 auto 14px' }}>
             <Store size={28} strokeWidth={1.7} color="var(--accent-deep)" />

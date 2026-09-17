@@ -1,11 +1,12 @@
 'use client';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, X, Trash2, ClipboardList } from 'lucide-react';
+import { Check, X, Trash2, ClipboardList, MoreVertical, Store } from 'lucide-react';
 import {
   listRegistrations,
   updateRegistration,
   deleteRegistration,
+  addShop,
   subscribe,
   type ManagerRegistration,
 } from '../../lib/db';
@@ -17,6 +18,7 @@ export default function RegistrationsPage() {
   const router = useRouter();
   const { t } = useLang();
   const [regs, setRegs] = useState<ManagerRegistration[]>([]);
+  const [menuReg, setMenuReg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setRegs(await listRegistrations());
@@ -34,6 +36,16 @@ export default function RegistrationsPage() {
 
   const toggle = (id: string, status: ManagerRegistration['status']) => {
     updateRegistration(id, status);
+    load();
+  };
+
+  const assignMoreShop = async (r: ManagerRegistration) => {
+    const name = (window.prompt(`Jina la duka la pili kwa ${r.fullName}:`, `${r.region || 'SmartCore'} Branch`) || '').trim();
+    if (!name) return;
+    setMenuReg(null);
+    try {
+      await addShop({ name, address: '', region: r.region || 'mwanza', location: null, managerName: r.fullName });
+    } catch (e) { setError(String(e)); }
     load();
   };
 
@@ -87,7 +99,38 @@ export default function RegistrationsPage() {
                       <td style={{ fontSize: 12, color: 'var(--muted)' }}>{new Date(r.registeredAt).toLocaleDateString()}</td>
                       <td><span className={`badge ${badgeClass(r.status)}`}>{r.status}</span></td>
                       <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <span style={{ position: 'relative', display: 'inline-flex' }}>
+                            <button
+                              type="button"
+                              className="icon-btn"
+                              onClick={() => setMenuReg(menuReg === r.userId ? null : r.userId)}
+                              aria-label="Actions"
+                              title="Actions"
+                              style={{ display: 'inline-flex', alignItems: 'center', padding: 6, background: 'none', border: 0, borderRadius: 6, cursor: 'pointer', color: 'var(--muted)' }}
+                            >
+                              <MoreVertical size={18} />
+                            </button>
+                            {menuReg === r.userId && (
+                              <div className="card" style={{ position: 'absolute', right: 0, top: 32, zIndex: 30, minWidth: 185, padding: 6, borderRadius: 10, boxShadow: 'var(--shadow)' }}>
+                                {r.status === 'pending' ? (
+                                  <button type="button" style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', borderRadius: 6, background: 'none', border: 0, cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500, color: 'var(--danger)' }}
+                                    onClick={() => { setMenuReg(null); toggle(r.userId, 'rejected'); }}>
+                                    <X size={14} /> {t('reg.reject')}
+                                  </button>
+                                ) : (
+                                  <button type="button" style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', borderRadius: 6, background: 'none', border: 0, cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500 }}
+                                    onClick={() => { setMenuReg(null); toggle(r.userId, 'approved'); }}>
+                                    <Check size={14} /> {t('reg.approve')}
+                                  </button>
+                                )}
+                                <button type="button" style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', borderRadius: 6, background: 'none', border: 0, cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500, color: 'var(--danger)' }}
+                                  onClick={() => { setMenuReg(null); handleDelete(r.userId, r.fullName); }}>
+                                  <Trash2 size={14} /> {t('reg.delete')}
+                                </button>
+                              </div>
+                            )}
+                          </span>
                           {r.status === 'pending' ? (
                             <>
                               <button className="btn btn-primary btn-sm" onClick={() => toggle(r.userId, 'approved')}>

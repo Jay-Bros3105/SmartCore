@@ -1,13 +1,15 @@
 'use client';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Store, Plus, Trash2, ChevronDown, ChevronUp, Package, Download, Pencil } from 'lucide-react';
+import { Store, Plus, Trash2, ChevronDown, ChevronUp, Package, Download, Pencil, MoreVertical } from 'lucide-react';
 import {
   listShops,
   listProducts,
   addShop,
   addProducts,
   deleteProduct,
+  deleteShop,
+  updateShop,
   updateProduct,
   subscribe,
   readScope,
@@ -28,6 +30,7 @@ export default function BranchesPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [openBranch, setOpenBranch] = useState<string | null>(null);
   const [editBranch, setEditBranch] = useState<string | null>(null);
+  const [menuShop, setMenuShop] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
 
@@ -62,6 +65,35 @@ export default function BranchesPage() {
     products
       .filter((p) => p.branchId === branchId)
       .sort((a, b) => a.name.localeCompare(b.name, 'en'));
+
+  const renameBranch = async (id: string, current: string) => {
+    const name = (window.prompt(`Rename shop "${current}"`, current) || '').trim();
+    if (!name || name === current) return;
+    setMenuShop(null);
+    setSaving(true);
+    try {
+      await updateShop(id, { name });
+      await load();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteShopRow = async (id: string, name: string) => {
+    if (!window.confirm(`Delete shop "${name}"? Inafuta duka + bidhaa zake. Haiwezi kurudishwa.`)) return;
+    setMenuShop(null);
+    setSaving(true);
+    try {
+      await deleteShop(id);
+      await load();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const toggleOpen = (id: string) => {
     setOpenBranch((cur) => (cur === id ? null : id));
@@ -217,6 +249,23 @@ export default function BranchesPage() {
                     </span>
                     <span style={{ color: 'var(--accent)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       {isOpen ? <><ChevronUp size={16} /> {t('br.cancel')}</> : <><ChevronDown size={16} /> {t('br.bidhaa.toggle')}</>}
+                    </span>
+                    <span style={{ position: 'relative', display: 'inline-flex' }} onClick={(e) => e.stopPropagation()}>
+                      <button type="button" className="icon-btn" onClick={() => setMenuShop(menuShop === shop.id ? null : shop.id)} aria-label="Shop actions" title="Shop actions">
+                        <MoreVertical size={18} />
+                      </button>
+                      {menuShop === shop.id && (
+                        <div className="card" style={{ position: 'absolute', right: 0, top: 30, zIndex: 30, padding: 6, minWidth: 150, fontSize: '0.85rem', boxShadow: 'var(--shadow)', borderRadius: 10 }}>
+                          <button type="button" style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 0, borderRadius: 6, fontSize: 'inherit', fontWeight: 500, cursor: 'pointer' }}
+                            onClick={() => { setMenuShop(null); setEditBranch(shop.id); }}>
+                            <Pencil size={14} /> {t('br.rename') || 'Rename shop'}
+                          </button>
+                          <button type="button" style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 0, borderRadius: 6, fontSize: 'inherit', fontWeight: 500, color: 'var(--danger)', cursor: 'pointer' }}
+                            onClick={() => deleteShopRow(shop.id, shop.name)}>
+                            <Trash2 size={14} /> {t('br.delete') || 'Delete shop'}
+                          </button>
+                        </div>
+                      )}
                     </span>
                   </div>
                 </div>

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/notify", "destination": "/api/notify" },
+    { "source": "/health", "destination": "/api/health" }
+  ],
+  "functions": {
+    "api/notify.js": { "maxDuration": 30 },
+    "api/health.js": { "maxDuration": 10 }
+  }
+}

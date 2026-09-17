@@ -28,6 +28,7 @@ import {
   where,
 } from './firebase';
 import { formatTsh } from './data';
+import { relayNotify } from './relay';
 
 /* ============================================================ TYPES */
 export type Geo = { lat: number; lng: number; place: string };
@@ -240,30 +241,53 @@ function id(prefix: string) {
   return prefix + '-' + Date.now().toString(36) + '-' + (++seq).toString(36) + '-' + Math.random().toString(36).slice(2, 7);
 }
 
+function memGet(key: string): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(key) ?? sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function memSet(key: string, value: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, value);
+    sessionStorage.setItem(key, value);
+  } catch {}
+}
+function memRemove(key: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  } catch {}
+}
+
 /* ================================================ ADMIN SCOPE */
 const SCOPE_KEY = 'neo_admin_scope';
 const AUTH_KEY = 'neo_admin_authed';
 
 export function saveScope(s: AdminScope) {
   if (typeof window === 'undefined') return;
-  sessionStorage.setItem(SCOPE_KEY, JSON.stringify(s));
+  memSet(SCOPE_KEY, JSON.stringify(s));
 }
 
 export function readScope(): AdminScope | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = sessionStorage.getItem(SCOPE_KEY);
+    const raw = memGet(SCOPE_KEY);
     return raw ? (JSON.parse(raw) as AdminScope) : null;
   } catch {
     return null;
   }
 }
 
-/** Kikao cha tab hii tu: kufunga/open tab mpya → inabidi uingie tena (login first). */
+/** Kikao kinahifadhiwa kwa localStorage → kuhifadhiwa browser ikifungwa/funguliwa. */
 export function isSessionAuthed(): boolean {
   if (typeof window === 'undefined') return false;
   try {
-    return sessionStorage.getItem(AUTH_KEY) === '1';
+    return memGet(AUTH_KEY) === '1';
   } catch {
     return false;
   }
@@ -272,15 +296,15 @@ export function isSessionAuthed(): boolean {
 export function markSessionAuthed() {
   if (typeof window === 'undefined') return;
   try {
-    sessionStorage.setItem(AUTH_KEY, '1');
+    memSet(AUTH_KEY, '1');
   } catch {}
 }
 
 export function clearSessionAuthed() {
   if (typeof window === 'undefined') return;
   try {
-    sessionStorage.removeItem(AUTH_KEY);
-    sessionStorage.removeItem(SCOPE_KEY);
+    memRemove(AUTH_KEY);
+    memRemove(SCOPE_KEY);
   } catch {}
 }
 
@@ -632,6 +656,12 @@ export async function approveClosing(id: string): Promise<{ ok: boolean; message
   // Kumbuka: SISI HATUANDIKI tena current ya LEO (siku iliyofungwa) kuwa 'remaining'.
   //  Ukweli wetu: opening_leo == current_leo daima; remaining inakwenda tu kwa kesho.
   await updateDoc(ref, { status: 'approved', approvedAt: new Date().toISOString() });
+  relayNotify({
+    to: 'manager',
+    managerUserId: String(data.createdBy || ''),
+    kind: 'closing_approved',
+    path: '/closings',
+  });
   return { ok: true };
 }
 
@@ -943,6 +973,15 @@ export async function approveCashReconciliation(id: string, adjustment?: number)
     fields.variance = countedCash - (expectedCash + adjustment);
   }
   await updateDoc(ref, fields);
+
+  const recSnap = await getDoc(ref);
+  const recData = recSnap.exists() ? (recSnap.data() as Record<string, unknown>) : {};
+  relayNotify({
+    to: 'manager',
+    managerUserId: String(recData.createdBy || ''),
+    kind: 'reconciliation_approved',
+    path: '/reconcile',
+  });
 }
 
 /** Count pending (un-approved) cash reconciliations. */
@@ -1135,6 +1174,12 @@ export async function approveStockReceiving(id: string): Promise<{ ok: boolean; 
       { merge: true }
     );
   }
+  relayNotify({
+    to: 'manager',
+    managerUserId: String(data.createdBy || ''),
+    kind: 'receiving_approved',
+    path: '/transactions',
+  });
   return { ok: true };
 }
 
@@ -1144,8 +1189,15 @@ export async function approveStockRequest(id: string): Promise<{ ok: boolean; me
   const ref = doc(getAdminDb(), COLLECTIONS.stockRequests, id);
   const snap = await getDoc(ref);
   if (!snap.exists()) return { ok: false, message: 'Request not found.' };
-  if ((snap.data() as Record<string, unknown>).status === 'approved') return { ok: true };
+  const requestData = snap.data() as Record<string, unknown>;
+  if (requestData.status === 'approved') return { ok: true };
   await updateDoc(ref, { status: 'approved', approvedAt: new Date().toISOString() });
+  relayNotify({
+    to: 'manager',
+    managerUserId: String(requestData.createdBy || ''),
+    kind: 'request_approved',
+    path: '/transactions',
+  });
   return { ok: true };
 }
 
@@ -1154,6 +1206,14 @@ export async function approveExpense(id: string): Promise<{ ok: boolean; message
   if (!isFirebaseConfigured()) return { ok: false, message: 'Firebase not configured.' };
   const ref = doc(getAdminDb(), COLLECTIONS.expenses, id);
   await updateDoc(ref, { status: 'approved', approvedAt: new Date().toISOString() });
+  const expenseSnap = await getDoc(ref);
+  const expenseData = expenseSnap.exists() ? (expenseSnap.data() as Record<string, unknown>) : {};
+  relayNotify({
+    to: 'manager',
+    managerUserId: String(expenseData.createdBy || ''),
+    kind: 'expense_approved',
+    path: '/transactions',
+  });
   return { ok: true };
 }
 
@@ -1236,6 +1296,12 @@ export async function approveShopChange(id: string): Promise<{ ok: boolean; mess
   }
 
   await updateDoc(ref, { status: 'approved', approvedAt: new Date().toISOString() });
+  relayNotify({
+    to: 'manager',
+    managerUserId: String(data.userId || ''),
+    kind: 'shop_change_approved',
+    path: '/#',
+  });
   return { ok: true };
 }
 

@@ -45,6 +45,13 @@ import {
 
 export const USE_FIREBASE = true;
 
+/** VAPID key ya Web Push — Firebase Console → Project settings → Cloud
+ *  Messaging → Web configuration → Web push certificates (Key pair).
+ *  Weka hapa ndipo push notifications za admin zitakapoendesha. */
+export const FIREBASE_VAPID_KEY =
+  process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY ||
+  'BKVHocoZ80IqGupLQqtIkQhZoROSaptw7XVRZa7AUXlIHSEGu2U6ZXJpiAkClByzQ3CmO08tZqGMQCRbQYo0qcw';
+
 export const firebaseConfig = {
   apiKey: 'AIzaSyBkxk_5m5J_nuDHwRl4lQwZO_n_KKkaPRQ',
   authDomain: 'smartcore-6673d.firebaseapp.com',
@@ -138,6 +145,11 @@ export async function requireAdmin(): Promise<{ email: string | null; uid: strin
   const u = auth.currentUser;
   if (u) await u.getIdToken().catch(() => {}); // pokeze token yoyote iliyofifia
   return { email: state.email, uid: state.uid };
+}
+
+/** Hakikisha Firebase app ipo (lazy, idempotent) na irudishe. */
+export function getAdminApp() {
+  return getApp();
 }
 
 /** Helpers za Firestore — ziko ready kutumika mara credentials zitakapowekwa. */

@@ -17,6 +17,7 @@ import { useTheme } from '../theme/ThemeContext';
 import AppWatermark from '../components/AppWatermark';
 import { fonts, radius, spacing } from '../theme/theme';
 import { getCurrentManager, subscribeProducts } from '../services/storeService';
+import { initPushNotifications } from '../services/notificationService';
 import type { ShopProduct } from '../services/storeService';
 import type { ManagerProfile } from '../services/types';
 import type { MainTabParamList } from '../navigation/TabNavigator';
@@ -59,6 +60,8 @@ export default function HomeScreen({ navigation }: Props) {
         if (cancelled) return;
         setManager(m);
         if (m?.branchId) {
+          // Usajili wa push notifications (FCM token) kwa manager huyu.
+          initPushNotifications(m.userId);
           setProducts([]);
           unsubProducts = subscribeProducts(
             m.branchId,

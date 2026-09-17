@@ -37,7 +37,16 @@
         }
       ],
       "expo-sharing",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-notifications",
+        {
+          "color": "#2BB6C9",
+          "defaultChannel": "default",
+          "sounds": [],
+          "googleServicesFile": "./android/app/google-services.json"
+        }
+      ]
     ]
   }
 }

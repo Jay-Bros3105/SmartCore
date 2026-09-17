@@ -1,0 +1,25 @@
+{
+  "name": "Neo-SmartCore Admin",
+  "short_name": "Neo-SmartCore",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#10202E",
+  "theme_color": "#2BB6C9",
+  "orientation": "portrait",
+  "description": "Admin dashboard ya Neo SmartCore — maduka, watumiaji, closing, stock na taarifa.",
+  "icons": [
+    {
+      "src": "/NeoSmartCore_Icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png"
+    },
+    {
+      "src": "/NeoSmartCore_Icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

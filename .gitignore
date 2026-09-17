@@ -17,3 +17,9 @@ admin-web/.firebase/
 android/
 android/**/local.properties
 *.apk
+relay/.env
+.vercel/
+**/google-services.json
+**/*service-account*.json
+.vercel
+.env*

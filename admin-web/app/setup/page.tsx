@@ -23,15 +23,23 @@ export default function SetupPage() {
   const [geo, setGeo] = useState<Geo>({ lat: 0, lng: 0, place: '' });
   const [error, setError] = useState('');
 
+  /* `/setup?add=1` = tamba duka (la pili) bila kufunga wizard → skip welcome
+   *  na skip redirect ya "shops already exist". Inarudisha kwenye `/` baada. */
+  const addMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('add') === '1';
+
   useEffect(() => {
-    if (typeof window !== 'undefined' && !isSessionAuthed()) {
+    if (!isSessionAuthed()) {
       router.replace('/login');
+      return;
+    }
+    if (addMode) {
+      setStep('shop');
       return;
     }
     listShops().then((shops) => {
       if (shops.length > 0) router.replace('/');
     });
-  }, [router]);
+  }, [router, addMode]);
 
   const saveShop = async (e: React.FormEvent) => {
     e.preventDefault();

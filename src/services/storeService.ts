@@ -30,6 +30,7 @@ import {
   getDB,
   isFirebaseConfigured,
 } from './firebase';
+import { notifyRelay } from './relayNotifications';
 import type {
   AdminInfo,
   Branch,
@@ -596,6 +597,14 @@ export async function submitClosingStock(
   if (isFirebaseConfigured()) {
     const ref = doc(getDB(), COLLECTIONS.closingReports, `${profile.branchId}_${closeDate}`);
     await setDoc(ref, payload);
+    notifyRelay({
+      to: 'admin',
+      shopId: profile.branchId,
+      shopName: profile.branchName,
+      kind: 'closing',
+      path: '/closings',
+      items: closingItems.map((it) => ({ name: it.name, remaining: it.remaining })),
+    });
     return { ok: true, docId: ref.id };
   }
   return { ok: false, message: 'Firebase not configured.' };
@@ -721,6 +730,13 @@ export async function submitShopChange(toShop: Branch): Promise<{ ok: boolean; m
     submittedAt: new Date().toISOString(),
   });
   await AsyncStorage.setItem(SHOP_CHANGE_KEY, ref.id);
+  notifyRelay({
+    to: 'admin',
+    shopId: toShop.id,
+    shopName: toShop.name,
+    kind: 'shop_change',
+    path: '/#',
+  });
   return { ok: true };
 }
 
@@ -1013,6 +1029,13 @@ export async function submitCashReconciliation(
   if (isFirebaseConfigured()) {
     const ref = doc(getDB(), COLLECTIONS.cashReconciliations, `${profile.branchId}_${date}`);
     await setDoc(ref, payload);
+    notifyRelay({
+      to: 'admin',
+      shopId: profile.branchId,
+      shopName: profile.branchName,
+      kind: 'reconciliation',
+      path: '/reconcile',
+    });
     return { ok: true, docId: ref.id };
   }
   return { ok: false, message: 'Firebase not configured.' };
@@ -1042,6 +1065,13 @@ export async function submitStockReceiving(
       status: 'pending_admin',
       submittedAt: new Date().toISOString(),
     });
+    notifyRelay({
+      to: 'admin',
+      shopId: profile.branchId,
+      shopName: profile.branchName,
+      kind: 'stock_receiving',
+      path: '/transactions',
+    });
     return { ok: true, docId: ref.id };
   }
   return { ok: false, message: 'Firebase not configured.' };
@@ -1070,6 +1100,13 @@ export async function submitStockRequest(
       createdBy: profile.userId,
       status: 'pending_admin',
       submittedAt: new Date().toISOString(),
+    });
+    notifyRelay({
+      to: 'admin',
+      shopId: profile.branchId,
+      shopName: profile.branchName,
+      kind: 'stock_request',
+      path: '/transactions',
     });
     return { ok: true, docId: ref.id };
   }
@@ -1121,6 +1158,13 @@ export async function submitExpenses(
       createdBy: profile.userId,
       status: 'pending_admin',
       submittedAt: new Date().toISOString(),
+    });
+    notifyRelay({
+      to: 'admin',
+      shopId: profile.branchId,
+      shopName: profile.branchName,
+      kind: 'expense',
+      path: '/transactions',
     });
     return { ok: true, docId: ref.id };
   }
